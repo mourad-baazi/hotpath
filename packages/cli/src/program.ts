@@ -10,6 +10,13 @@ import { runRecorder } from "hotpath-recorder";
 import { runTask } from "hotpath-runtime";
 import {
   addSchedule,
+  applyPlan,
+  describePlan,
+  planInstall,
+  planInstalled,
+  processAlive,
+  statePaths,
+  type InstallPlatform,
   computeStats,
   defaultStateDir,
   formatStats,
@@ -26,7 +33,10 @@ import {
   table,
 } from "hotpath-scheduler";
 import { startViewer } from "hotpath-viewer";
+import { readFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
+import { createInterface } from "node:readline/promises";
 
 import type { ClaudeScope } from "./wrap/agents.js";
 import { repoRoot, selfCommand } from "./wrap/self.js";
@@ -225,6 +235,15 @@ async function guarded(fn: () => Promise<void>): Promise<void> {
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
+  }
+}
+
+async function confirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return /^y(es)?$/i.test((await rl.question(question)).trim());
+  } finally {
+    rl.close();
   }
 }
 
@@ -439,7 +458,70 @@ function addDaemonCommands(program: Command): void {
         process.exit(0);
       }),
     );
-  void daemon;
+
+  const plan = () => {
+    const platform = (
+      ["win32", "darwin"].includes(process.platform)
+        ? process.platform
+        : "linux"
+    ) as InstallPlatform;
+    return planInstall(platform, {
+      argv: [...selfCommand(), "daemon"],
+      projectDir: repoRoot,
+      home: os.homedir(),
+      uid: process.getuid?.(),
+    });
+  };
+
+  for (const action of ["install", "uninstall"] as const) {
+    daemon
+      .command(action)
+      .description(
+        action === "install"
+          ? "Start the daemon at login for this user (Task Scheduler, launchd or systemd)"
+          : "Stop starting the daemon at login",
+      )
+      .option("--yes", "don't ask for confirmation")
+      .action((options: { yes?: boolean }) =>
+        guarded(async () => {
+          const p = plan();
+          console.log(describePlan(p, action));
+          if (!options.yes && !(await confirm(`\n${action}? [y/N] `))) {
+            console.log("nothing changed");
+            return;
+          }
+          await applyPlan(p, action);
+          console.log(
+            action === "install"
+              ? `installed ${p.name}: the daemon starts at login (and now, where the OS supports it)`
+              : `uninstalled ${p.name}`,
+          );
+        }),
+      );
+  }
+
+  daemon
+    .command("status")
+    .description("Is the daemon installed, and is it running for this project?")
+    .action(() =>
+      guarded(async () => {
+        const p = plan();
+        console.log(
+          `start at login: ${planInstalled(p) ? `installed (${p.name})` : "not installed (hotpath daemon install)"}`,
+        );
+        let pid = 0;
+        try {
+          pid = Number(
+            (await readFile(statePaths(defaultStateDir).lock, "utf8")).trim(),
+          );
+        } catch {
+          pid = 0;
+        }
+        console.log(
+          `running: ${pid > 0 && processAlive(pid) ? `yes (pid ${pid})` : "no"}`,
+        );
+      }),
+    );
 
   program
     .command("run-due")

@@ -8,3 +8,4 @@ export * from "./paths.js";
 export * from "./runner.js";
 export * from "./stats.js";
 export * from "./store.js";
+export * from "./install.js";
