@@ -55,7 +55,13 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
           id: llmId,
           type: "llm",
           model: "cheap",
-          prompt: buildPrompt(trace.meta.task, readOnlyResults, key, call.tool),
+          prompt: buildPrompt(
+            trace.meta.task,
+            readOnlyResults,
+            key,
+            call.tool,
+            constantSiblings(call.args, key),
+          ),
           example: value,
           guard: {
             nonEmpty: true,
@@ -116,6 +122,7 @@ function buildPrompt(
   readOnlyResults: Array<{ id: string; tool: string; result: unknown }>,
   argName: string,
   tool: string,
+  siblings: string,
 ): string {
   const parts = [`You are compiling the task "${task}".`];
   // Templates, not recorded data: the runtime fills them with each run's results.
@@ -123,9 +130,19 @@ function buildPrompt(
     parts.push(`${id} ${toolName} result:\n{{steps.${id}.result}}`);
   }
   parts.push(
-    `write the \`${argName}\` for \`${tool}\`. Use only the data above and cover every item in it.`,
+    `write the \`${argName}\` for \`${tool}\`${siblings}. Use only the data above and cover every item in it.`,
   );
   return parts.join("\n\n");
+}
+
+// ` (to="manager")`: the short constant args next to the generated one.
+function constantSiblings(args: Record<string, unknown>, skip: string): string {
+  const parts = Object.entries(args)
+    .filter(
+      ([k, v]) => k !== skip && typeof v === "string" && !isLlmWrittenText(v),
+    )
+    .map(([k, v]) => `${k}=${JSON.stringify(v)}`);
+  return parts.length > 0 ? ` (${parts.join(", ")})` : "";
 }
 
 // rule 3: find `value` inside an earlier result; returns the shortest path.

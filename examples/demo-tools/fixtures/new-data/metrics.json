@@ -1,0 +1,12 @@
+{
+  "deploys": {
+    "metric": "deploys",
+    "value": 9,
+    "unit": "count"
+  },
+  "uptime": {
+    "metric": "uptime",
+    "value": 99.99,
+    "unit": "percent"
+  }
+}

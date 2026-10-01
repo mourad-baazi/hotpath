@@ -20,6 +20,7 @@ Needs Node 22+ and pnpm 9+. Runs on the bundled demo task (a fake "morning brief
 git clone https://github.com/mourad-baazi/hotpath.git
 cd hotpath
 pnpm install
+pnpm -r build   # also builds the demo tools, which the demos start with plain node
 cp .env.example .env
 ```
 
@@ -30,6 +31,7 @@ LLM_API_KEY=your-key
 LLM_BASE_URL=https://api.groq.com/openai/v1
 HOTPATH_AGENT_MODEL=openai/gpt-oss-120b   # the "expensive agent"
 HOTPATH_CHEAP_MODEL=openai/gpt-oss-20b    # used by workflow llm steps
+HOTPATH_CHEAP_REASONING=low               # optional: reasoning_effort for the cheap model (gpt-oss supports it)
 ```
 
 Then record → compile → run → view:
@@ -49,7 +51,15 @@ pnpm hotpath run morning-brief --input date=2026-10-01
 pnpm hotpath view morning-brief
 ```
 
-Use `--dry-run` on `run` to see what the side-effecting steps would send without sending anything.
+`run` prints where the time went, so you can see that the deterministic part is nearly instant:
+
+```
+✓ morning-brief in 0.6s, $0.0009 (1 llm call) · startup 219ms + tools 38ms + llm 384ms
+```
+
+(`startup` is spawning and connecting to the MCP server, `tools` is every tool step together, `llm` is the model call.) Use `--dry-run` on `run` to see what the side-effecting steps would send without sending anything.
+
+There is a second, bigger demo task, `weekly-report` (13 tool calls, two LLM steps, data passed between steps). Use it the same way: `--task weekly-report --date 2026-10-04` for the agent, then `compile`/`run`/`view weekly-report`.
 
 ## How it works
 
@@ -72,24 +82,29 @@ flowchart LR
 
 ## Benchmark
 
-Produced by `pnpm bench` (real API calls) on **2026-10-01**, with `openai/gpt-oss-120b` as the agent and `openai/gpt-oss-20b` as the workflow's cheap model, both on Groq. This is the unedited output of a single run:
+Produced by `pnpm bench` (real API calls) on **2026-10-01**, all on Groq: `qwen/qwen3.8-27b` as the agent, `openai/gpt-oss-20b` (with `HOTPATH_CHEAP_REASONING=low`) as the workflow's cheap model. This is the unedited output of a single run, for the two demo tasks (`morning-brief`: 4 tool calls and 1 LLM step; `weekly-report`: 13 tool calls and 2 LLM steps):
 
 ```
-scenario   agent time / cost  hotpath time / cost    speedup  cheaper  match  fallback
-same-data  5.0s / $0.0163     2.3s / $0.0029         2x       6x       ✅      no
-new-data   5.3s / $0.0145     2.3s / $0.0021         2x       7x       ✅      no
-drift      -                  7.4s / $0.0159 → 2.2s  -        -        ✅      yes → recompiled
+scenario                 agent time / cost  hotpath time / cost     startup + tools + llm  speedup  cheaper  match  fallback
+morning-brief/same-data  15.4s / $0.0194    0.8s / $0.0016          218ms + 35ms + 509ms   20x      12x      ✅      no
+morning-brief/new-data   34.9s / $0.0187    0.8s / $0.0014          217ms + 36ms + 585ms   41x      13x      ✅      no
+morning-brief/drift      -                  38.6s / $0.0191 → 0.8s  218ms + 38ms + 545ms   -        -        ✅      yes → recompiled
+weekly-report/same-data  75.7s / $0.0444    1.4s / $0.0041          216ms + 55ms + 1.1s    55x      11x      ✅      no
+weekly-report/new-data   78.7s / $0.0468    1.1s / $0.0039          218ms + 57ms + 860ms   69x      12x      ✅      no
+weekly-report/drift      -                  70.5s / $0.0539 → 1.3s  247ms + 67ms + 1.0s    -        -        ✅      yes → recompiled
 ```
 
-- **same-data**: the workflow made the same tool calls as the recorded trace and the brief mentioned everything it should.
-- **new-data**: the same workflow, run on different data, with no agent involved and no recompilation.
-- **drift**: the email field was renamed (`subject` → `title`); the guard caught it at step `s1`, the agent ran once, the workflow was recompiled, and the next run passed with no fallback (`7.4s / $0.0159` is the fallback run including the agent, `2.2s` is the following clean run).
+- **same-data**: the workflow made the same tool calls as the recorded trace (ignoring the LLM-written text) and the output mentioned everything it should.
+- **new-data**: the same workflow on different data (different emails, different repositories and incident), with no agent involved and no recompilation.
+- **drift**: a field was renamed (`subject` → `title` for morning-brief, repo `name` → `slug` for weekly-report). The guard caught it at step `s1`, the agent ran once, the workflow was recompiled, and the next run passed with no fallback. The first time is the fallback run including the agent, the time after the arrow is the following clean run.
+- **startup + tools + llm** is where the workflow's time goes: starting and connecting to the MCP server, all the deterministic tool steps together, and the LLM steps. The tool steps take roughly 35–70 ms in total; almost all of the rest is the one model call per message.
 
 Read these numbers with care:
 
-- It is one run per scenario on a tiny task, not a statistical benchmark.
-- Costs are computed from the per-token prices configured in `.env` (`PRICE_*`), not from your provider's invoice. These runs used the defaults in `.env.example` (agent $3 / $15, cheap $0.95 / $4 per million input / output tokens), which are placeholders rather than Groq's actual prices. Set your own to get real dollar figures.
-- Groq is very fast, so the agent's baseline is only about 5 seconds here, and the cheap model spends hundreds of tokens on reasoning. The speedup is therefore modest (about 2x); the gap should grow with slower models and longer tasks, but that is not measured here.
+- It is one run per scenario on small fake tasks, not a statistical benchmark, and the LLM parts are not deterministic. During development, individual scenarios occasionally failed on a missing mention (the cheap model leaving out an item); this table is one complete passing run, not an average.
+- **The agent timings are noisy and partly inflated by rate limits.** Groq's free tier limits tokens per minute, and the client retries when it is hit, so some agent runs include waiting. A standalone `morning-brief` agent run with the same model took about 3.4 s, versus 15–35 s here, so the `morning-brief` speedups (20x, 41x) overstate the real gap. The `weekly-report` agent runs (about 75 s for 13 sequential tool calls) are mostly genuine model latency but we cannot separate out any rate-limit waiting.
+- Costs are computed from the per-token prices configured in `.env` (`PRICE_*`), not from your provider's invoice. This run used the defaults in `.env.example` (agent $3 / $15, cheap $0.95 / $4 per million input / output tokens), which are placeholders rather than Groq's actual prices. Set your own to get real dollar figures; the "cheaper" ratio is only as meaningful as those prices.
+- The first run of the day used `openai/gpt-oss-120b` as the agent, but it hit Groq's daily token limit before the benchmark could finish, so the agent was switched to `qwen/qwen3.8-27b` for this run.
 
 ## CLI reference
 

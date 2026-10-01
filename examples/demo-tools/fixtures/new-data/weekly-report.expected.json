@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-11",
+  "mustMention": [
+    "billing-service",
+    "mobile-app",
+    "docs-site",
+    "Elevated API latency",
+    "INC-205",
+    "99.99"
+  ]
+}

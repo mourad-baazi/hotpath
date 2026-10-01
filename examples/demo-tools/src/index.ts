@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-import { appendMessage } from "./messages.js";
+import { registerSendMessage } from "./common.js";
 import { loadFixture } from "./fixtures.js";
 
 const server = new McpServer({ name: "demo-tools", version: "0.1.0" });
@@ -76,25 +76,7 @@ server.registerTool(
   },
 );
 
-server.registerTool(
-  "send_message",
-  {
-    description: "Send a message (writes to out/messages.json)",
-    inputSchema: {
-      to: z.string().describe("Recipient"),
-      text: z.string().describe("Message text"),
-    },
-    annotations: { readOnlyHint: false, destructiveHint: false },
-  },
-  async ({ to, text }) => {
-    const message = await appendMessage({ to, text });
-    return {
-      content: [
-        { type: "text", text: JSON.stringify({ ok: true, id: message.id }) },
-      ],
-    };
-  },
-);
+registerSendMessage(server);
 
 function emailsForDate(emails: Array<{ date?: string }>, date: string) {
   return emails.filter((e) => e.date === undefined || e.date === date);

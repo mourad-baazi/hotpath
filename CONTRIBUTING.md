@@ -20,12 +20,13 @@ from environment variables.
 ## Running the checks
 
 ```bash
-pnpm -r build     # type-check every package (TypeScript strict, ESM only)
+pnpm -r build     # type-check every package (TypeScript strict, ESM only);
+                  # also emits examples/demo-tools/dist, which the tests start with node
 pnpm -r test      # vitest, no API key needed
 pnpm lint         # eslint + prettier --check
 ```
 
-All three must pass before you open a PR. To fix formatting: `pnpm exec prettier --write .`
+Run `build` before `test`: the demo-agent tests start the demo tools from the built `dist`. All three must pass before you open a PR. To fix formatting: `pnpm exec prettier --write .`
 
 Tests must **not** call a real LLM. Mock `packages/shared/src/llm.ts` (see
 `packages/runtime/test/` for examples). Only `pnpm bench` and `examples/demo-agent`

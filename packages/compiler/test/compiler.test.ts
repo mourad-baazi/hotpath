@@ -71,6 +71,10 @@ describe("compiler (fixture trace)", () => {
       expect(llm.prompt).toContain("{{steps.s2.result}}");
       expect(llm.prompt).toContain("{{steps.s3.result}}");
       expect(llm.prompt).not.toContain("alice@corp.com");
+      // constant sibling args tell the model who the text is for
+      expect(llm.prompt).toContain(
+        'write the `text` for `send_message` (to="me")',
+      );
       expect(llm.guard.nonEmpty).toBe(true);
       expect(llm.guard.maxChars).toBeGreaterThanOrEqual(3 * llm.example.length);
     }

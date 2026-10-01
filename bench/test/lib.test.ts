@@ -20,6 +20,27 @@ describe("missingMentions", () => {
   });
 });
 
+describe("missingMentions typography", () => {
+  it("treats non-breaking hyphens, narrow spaces and curly quotes as plain ones", () => {
+    const text =
+      "Incidents: INC‑101 “Database failover”; uptime 99.95 %; multi‑currency";
+    expect(
+      missingMentions(text, [
+        "INC-101",
+        '"Database failover"',
+        "99.95 %",
+        "multi-currency",
+      ]),
+    ).toEqual([]);
+  });
+
+  it("still reports a mention that is genuinely absent", () => {
+    expect(missingMentions("INC‑101 only", ["INC-101", "INC-205"])).toEqual([
+      "INC-205",
+    ]);
+  });
+});
+
 describe("sequenceMatches", () => {
   const trace = [
     { tool: "get_emails", args: { date: "2026-10-01" } },
@@ -79,7 +100,13 @@ describe("formatTable", () => {
       scenario: "same-data",
       pass: true,
       agent: { durationMs: 38200, costUsd: 0.041 },
-      hotpath: { durationMs: 600, costUsd: 0.0021 },
+      hotpath: {
+        durationMs: 600,
+        costUsd: 0.0021,
+        connectMs: 310,
+        toolMs: 45,
+        llmMs: 1100,
+      },
       match: true,
       fallback: false,
     },
@@ -96,7 +123,7 @@ describe("formatTable", () => {
       pass: true,
       agent: null,
       hotpath: { durationMs: 44100, costUsd: 0.0452 },
-      recovered: { durationMs: 600 },
+      recovered: { durationMs: 600, connectMs: 300, toolMs: 38, llmMs: 90 },
       match: true,
       fallback: true,
     },
@@ -111,6 +138,18 @@ describe("formatTable", () => {
     expect(table).toMatch(/20x/);
     expect(table).toMatch(/44\.1s \/ \$0\.0452 → 0\.6s/);
     expect(table).toMatch(/yes → recompiled/);
+  });
+
+  it("shows startup, tool and llm time separately", () => {
+    const table = formatTable(rows);
+    expect(table).toContain("startup + tools + llm");
+    expect(table).toContain("310ms + 45ms + 1.1s");
+    // drift row shows the recovered (clean) run's split
+    expect(table).toContain("300ms + 38ms + 90ms");
+    // rows without a split (older results) show a dash instead of crashing
+    expect(
+      formatTable([{ ...rows[1], hotpath: { durationMs: 1, costUsd: 0 } }]),
+    ).toContain("-");
   });
 
   it("shows failures", () => {

@@ -13,8 +13,6 @@ import {
 
 import { loadTaskConfig, repoRoot, splitCommand } from "./config.js";
 
-const MAX_TURNS = 12;
-
 export interface AgentOptions {
   task: string;
   date: string;
@@ -28,13 +26,56 @@ export interface AgentMetrics {
   costUsd: number;
 }
 
-function systemPrompt(date: string): string {
-  return (
-    `You are a personal assistant. Today is ${date}. Produce the user's morning brief: ` +
-    `read today's emails, calendar and the weather in Paris, then call send_message ` +
-    `with to="me" and a concise brief that mentions every email subject, every event ` +
-    `and the weather.`
-  );
+const PROMPTS: Record<
+  string,
+  { system: (date: string) => string; user: string; maxTurns: number }
+> = {
+  "morning-brief": {
+    system: (date) =>
+      `You are a personal assistant. Today is ${date}. Produce the user's morning brief: ` +
+      `read today's emails, calendar and the weather in Paris, then call send_message ` +
+      `with to="me" and a concise brief that mentions every email subject, every event ` +
+      `and the weather.`,
+    user: "Please produce the morning brief now.",
+    maxTurns: 12,
+  },
+  "weekly-report": {
+    system: (date) =>
+      `You are an engineering manager's assistant. The week ends on ${date}. Produce the ` +
+      `weekly report: list the repositories; for each repository read its commits and its ` +
+      `open issues; read the week's incidents and the details of each incident; read the ` +
+      `deploys and uptime metrics. Make independent calls together in the same step. Then ` +
+      `call send_message twice: once with to="team" and a summary that mentions every ` +
+      `repository with its main changes and open issues, and once with to="manager" and a ` +
+      `short executive summary that mentions each incident (id and title), the deploys ` +
+      `count and the uptime. You must call send_message exactly twice (team, then manager) ` +
+      `and only finish after both messages are sent.`,
+    user: "Please produce the weekly report now and send both messages.",
+    // models often make one tool call per turn, and this task needs 13
+    maxTurns: 20,
+  },
+};
+
+function promptFor(task: string) {
+  const entry = PROMPTS[task];
+  if (!entry) {
+    throw new Error(
+      `no prompt for task "${task}" — demo-agent knows: ${Object.keys(PROMPTS).join(", ")}`,
+    );
+  }
+  return entry;
+}
+
+export function systemPrompt(task: string, date: string): string {
+  return promptFor(task).system(date);
+}
+
+export function maxTurns(task: string): number {
+  return promptFor(task).maxTurns;
+}
+
+export function userRequest(task: string): string {
+  return promptFor(task).user;
 }
 
 export async function runAgent(options: AgentOptions): Promise<AgentMetrics> {
@@ -75,19 +116,26 @@ export async function runAgent(options: AgentOptions): Promise<AgentMetrics> {
     }));
 
     const messages: ChatMessage[] = [
-      { role: "system", content: systemPrompt(options.date) },
-      { role: "user", content: "Please produce the morning brief now." },
+      { role: "system", content: systemPrompt(options.task, options.date) },
+      { role: "user", content: userRequest(options.task) },
     ];
 
     let llmCalls = 0;
     let promptTokens = 0;
     let completionTokens = 0;
 
-    for (let turn = 0; turn < MAX_TURNS; turn++) {
+    for (let turn = 0; turn < maxTurns(options.task); turn++) {
       const result = await chat({ model: AGENT_MODEL, messages, tools });
       llmCalls += result.llmCalls;
       promptTokens += result.promptTokens;
       completionTokens += result.completionTokens;
+
+      if (process.env.HOTPATH_DEBUG) {
+        console.error(
+          `[agent turn ${turn + 1}] tools: ${result.toolCalls.map((c) => c.name).join(", ") || "-"}` +
+            (result.text ? ` | text: ${result.text.slice(0, 200)}` : ""),
+        );
+      }
 
       if (result.toolCalls.length === 0) break;
 

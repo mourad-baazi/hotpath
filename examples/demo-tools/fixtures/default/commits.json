@@ -1,0 +1,53 @@
+{
+  "payments-api": [
+    {
+      "sha": "a1b2c3d",
+      "author": "alice",
+      "message": "Add idempotency keys to the charge endpoint"
+    },
+    {
+      "sha": "b2c3d4e",
+      "author": "bob",
+      "message": "Fix rounding error in multi-currency refunds"
+    },
+    {
+      "sha": "c3d4e5f",
+      "author": "alice",
+      "message": "Upgrade the payment provider SDK to v9"
+    }
+  ],
+  "web-app": [
+    {
+      "sha": "d4e5f6a",
+      "author": "carol",
+      "message": "Redesign the checkout summary page"
+    },
+    {
+      "sha": "e5f6a7b",
+      "author": "dave",
+      "message": "Fix focus trap in the address modal"
+    }
+  ],
+  "infra-tools": [
+    {
+      "sha": "f6a7b8c",
+      "author": "erin",
+      "message": "Add Terraform drift report to the nightly job"
+    },
+    {
+      "sha": "a7b8c9d",
+      "author": "erin",
+      "message": "Rotate the staging database credentials"
+    },
+    {
+      "sha": "b8c9d0e",
+      "author": "bob",
+      "message": "Cache container layers in CI"
+    },
+    {
+      "sha": "c9d0e1f",
+      "author": "dave",
+      "message": "Document the on-call runbook"
+    }
+  ]
+}

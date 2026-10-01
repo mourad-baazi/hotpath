@@ -138,3 +138,37 @@ describe("demo-agent (mocked llm)", () => {
     ]);
   }, 30_000);
 });
+
+describe("per-task prompts", () => {
+  it("morning-brief keeps its original brief", async () => {
+    const { systemPrompt, userRequest } = await import("../src/agent.js");
+    expect(systemPrompt("morning-brief", "2026-10-01")).toMatch(
+      /Today is 2026-10-01.*morning brief.*send_message/s,
+    );
+    expect(userRequest("morning-brief")).toMatch(/morning brief/);
+  });
+
+  it("weekly-report asks for per-repo reads, incidents, metrics and two messages", async () => {
+    const { systemPrompt } = await import("../src/agent.js");
+    const prompt = systemPrompt("weekly-report", "2026-10-04");
+    expect(prompt).toContain("2026-10-04");
+    expect(prompt).toMatch(/each repository/);
+    expect(prompt).toMatch(/incident/);
+    expect(prompt).toMatch(/to="team"/);
+    expect(prompt).toMatch(/to="manager"/);
+  });
+
+  it("morning-brief keeps the spec's 12-turn cap; weekly-report gets room for 13 calls", async () => {
+    const { maxTurns } = await import("../src/agent.js");
+    expect(maxTurns("morning-brief")).toBe(12);
+    // one tool call per turn is common: 12 reads/sends + the final answer
+    expect(maxTurns("weekly-report")).toBeGreaterThanOrEqual(16);
+  });
+
+  it("an unknown task says which tasks have a prompt", async () => {
+    const { systemPrompt } = await import("../src/agent.js");
+    expect(() => systemPrompt("nope", "2026-10-01")).toThrow(
+      /no prompt for task "nope".*morning-brief.*weekly-report/s,
+    );
+  });
+});

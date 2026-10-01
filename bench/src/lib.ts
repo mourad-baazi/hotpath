@@ -1,5 +1,7 @@
 // Pure helpers for `pnpm bench` (SPEC §7); process/file I/O lives in index.ts.
 
+import { formatMs } from "hotpath-shared";
+
 export interface ToolCall {
   tool: string;
   args: Record<string, unknown>;
@@ -8,6 +10,16 @@ export interface ToolCall {
 export interface Timing {
   durationMs: number;
   costUsd: number;
+  /** hotpath runs only: MCP server startup, tool steps, llm steps (ms) */
+  connectMs?: number;
+  toolMs?: number;
+  llmMs?: number;
+}
+
+export interface Split {
+  connectMs?: number;
+  toolMs?: number;
+  llmMs?: number;
 }
 
 export interface ScenarioResult {
@@ -18,15 +30,30 @@ export interface ScenarioResult {
   /** the hotpath run (for drift: the fallback run incl. the agent) */
   hotpath: Timing;
   /** drift only: the follow-up run on the recompiled workflow */
-  recovered?: { durationMs: number };
+  recovered?: { durationMs: number } & Split;
   match: boolean;
   fallback: boolean;
   notes?: string[];
 }
 
+/**
+ * Models often type typographic variants (U+2011 non-breaking hyphen, narrow
+ * no-break space, curly quotes) of text we match; fold them so only a real
+ * omission counts as missing.
+ */
+function normalize(text: string): string {
+  return text
+    .normalize("NFKC")
+    .replace(/[‐-―−]/g, "-")
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
 export function missingMentions(text: string, mustMention: string[]): string[] {
-  const haystack = text.toLowerCase();
-  return mustMention.filter((m) => !haystack.includes(m.toLowerCase()));
+  const haystack = normalize(text);
+  return mustMention.filter((m) => !haystack.includes(normalize(m)));
 }
 
 /** `tool.arg` keys whose value comes from an llm step, so they differ every run. */
@@ -78,11 +105,24 @@ const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 const dollars = (usd: number) => `$${usd.toFixed(4)}`;
 const pair = (t: Timing) => `${seconds(t.durationMs)} / ${dollars(t.costUsd)}`;
 
+/** "0.3s + 45ms + 1.1s": server startup + deterministic tool steps + llm steps. */
+function splitCell(s: Split): string {
+  if (
+    s.connectMs === undefined ||
+    s.toolMs === undefined ||
+    s.llmMs === undefined
+  ) {
+    return "-";
+  }
+  return `${formatMs(s.connectMs)} + ${formatMs(s.toolMs)} + ${formatMs(s.llmMs)}`;
+}
+
 export function formatTable(rows: ScenarioResult[]): string {
   const header = [
     "scenario",
     "agent time / cost",
     "hotpath time / cost",
+    "startup + tools + llm",
     "speedup",
     "cheaper",
     "match",
@@ -104,6 +144,7 @@ export function formatTable(rows: ScenarioResult[]): string {
       r.scenario,
       r.agent ? pair(r.agent) : "-",
       hotpath,
+      splitCell(r.recovered ?? r.hotpath),
       speedup,
       cheaper,
       r.pass && r.match ? "✅" : "❌",

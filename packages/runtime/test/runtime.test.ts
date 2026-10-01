@@ -109,8 +109,12 @@ describe("runtime (mocked llm, real MCP via recorder)", () => {
 
     // summary line
     const summary = logs.find((l) => l.includes("✓"));
+    // "· startup 0.3s + tools 45ms + llm 1.1s": tool time shown apart from the llm
+    const dur = String.raw`(?:\d+ms|\d+\.\ds)`;
     expect(summary).toMatch(
-      /^✓ morning-brief in \d+\.\ds, \$0\.\d{4} \(1 llm call\)$/,
+      new RegExp(
+        String.raw`^✓ morning-brief in \d+\.\ds, \$0\.\d{4} \(1 llm call\) · startup ${dur} \+ tools ${dur} \+ llm ${dur}$`,
+      ),
     );
     const pin = Number(process.env.PRICE_CHEAP_IN ?? 0.95);
     const pout = Number(process.env.PRICE_CHEAP_OUT ?? 4);
@@ -125,6 +129,18 @@ describe("runtime (mocked llm, real MCP via recorder)", () => {
     expect(metrics.completionTokens).toBe(10);
     expect(metrics.steps).toHaveLength(5);
     expect(metrics.steps.every((s) => s.ok)).toBe(true);
+
+    // time split: tool steps vs the llm step vs server startup
+    const ms = (ids: string[]) =>
+      metrics.steps
+        .filter((s) => ids.includes(s.id))
+        .reduce((total, s) => total + s.durationMs, 0);
+    expect(metrics.llmMs).toBe(ms(["s4"]));
+    expect(metrics.toolMs).toBe(ms(["s1", "s2", "s3", "s5"]));
+    expect(metrics.connectMs).toBeGreaterThan(0);
+    expect(
+      metrics.connectMs + metrics.toolMs + metrics.llmMs,
+    ).toBeLessThanOrEqual(metrics.durationMs);
 
     // the brief sent via send_message is the mocked llm text
     const messages = JSON.parse(await readFile(messagesFile, "utf8"));
@@ -144,6 +160,52 @@ describe("runtime (mocked llm, real MCP via recorder)", () => {
     expect(recorded.calls[2].args).toEqual(trace.calls[2].args);
     expect(recorded.calls[3].args.to).toBe("me");
     expect(recorded.calls[3].args.text).toBe(MOCK_BRIEF);
+  }, 30_000);
+
+  it("passes HOTPATH_CHEAP_REASONING to the llm step's chat call", async () => {
+    const task = taskName();
+    const { workflow } = await fixtureWorkflow(task);
+    process.env.HOTPATH_CHEAP_REASONING = "low";
+    try {
+      await runWorkflow(workflow, {
+        inputs: { date: "2026-10-01" },
+        dryRun: true,
+      });
+    } finally {
+      delete process.env.HOTPATH_CHEAP_REASONING;
+    }
+    expect(chatMock).toHaveBeenCalledTimes(1);
+    expect(chatMock.mock.calls[0][0].reasoningEffort).toBe("low");
+
+    chatMock.mockClear();
+    await runWorkflow(workflow, {
+      inputs: { date: "2026-10-01" },
+      dryRun: true,
+    });
+    expect(chatMock.mock.calls[0][0].reasoningEffort).toBeUndefined();
+  }, 30_000);
+
+  it("llm prompt carries this run's data and says not to copy the example", async () => {
+    const task = taskName();
+    const { workflow } = await fixtureWorkflow(task);
+    await runWorkflow(workflow, {
+      inputs: { date: "2026-10-01" },
+      dryRun: true,
+    });
+    const prompt = chatMock.mock.calls[0][0].messages[0].content;
+    expect(prompt).not.toContain("{{");
+    expect(prompt).toContain("Q3 budget review moved to 14:00"); // rendered data
+    expect(prompt).toMatch(/only the data above/i);
+    expect(prompt).toMatch(/must not be copied/i);
+    // an explicit target length: small models ignore a length implied by the example
+    const example = workflow.steps.find((st) => st.type === "llm");
+    expect(prompt).toContain(
+      `about ${example && example.type === "llm" ? example.example.length : -1} characters`,
+    );
+    expect(prompt).toContain("Match the style and length of this example:");
+    expect(prompt.indexOf("must not be copied")).toBeLessThan(
+      prompt.indexOf("Match the style and length of this example:"),
+    );
   }, 30_000);
 
   it("--dry-run skips side effects and prints what they would send", async () => {

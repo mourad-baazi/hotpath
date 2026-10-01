@@ -1,0 +1,33 @@
+{
+  "payments-api": [
+    {
+      "number": 412,
+      "title": "Refund webhook is retried twice",
+      "labels": ["bug"]
+    },
+    {
+      "number": 418,
+      "title": "Support SEPA direct debit",
+      "labels": ["feature"]
+    }
+  ],
+  "web-app": [
+    {
+      "number": 203,
+      "title": "Checkout button misaligned on Safari 17",
+      "labels": ["bug"]
+    }
+  ],
+  "infra-tools": [
+    {
+      "number": 77,
+      "title": "Nightly job exceeds 30 minutes",
+      "labels": ["performance"]
+    },
+    {
+      "number": 81,
+      "title": "Pin the base image digest",
+      "labels": ["security"]
+    }
+  ]
+}

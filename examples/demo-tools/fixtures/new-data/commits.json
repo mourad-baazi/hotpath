@@ -1,0 +1,43 @@
+{
+  "billing-service": [
+    {
+      "sha": "1a2b3c4",
+      "author": "frank",
+      "message": "Generate invoices in the customer's timezone"
+    },
+    {
+      "sha": "2b3c4d5",
+      "author": "gina",
+      "message": "Add retry with backoff to the tax service client"
+    }
+  ],
+  "mobile-app": [
+    {
+      "sha": "3c4d5e6",
+      "author": "hugo",
+      "message": "Ship offline mode for the order history screen"
+    },
+    {
+      "sha": "4d5e6f7",
+      "author": "ivy",
+      "message": "Fix crash when rotating on the payment sheet"
+    },
+    {
+      "sha": "5e6f7a8",
+      "author": "hugo",
+      "message": "Bump the minimum supported Android version to 10"
+    }
+  ],
+  "docs-site": [
+    {
+      "sha": "6f7a8b9",
+      "author": "ivy",
+      "message": "Publish the v2 migration guide"
+    },
+    {
+      "sha": "7a8b9c0",
+      "author": "jules",
+      "message": "Fix broken anchors in the API reference"
+    }
+  ]
+}

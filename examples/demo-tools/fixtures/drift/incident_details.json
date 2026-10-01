@@ -1,0 +1,10 @@
+{
+  "INC-101": {
+    "id": "INC-101",
+    "title": "Database failover during checkout",
+    "severity": "high",
+    "duration_minutes": 23,
+    "root_cause": "The primary database node ran out of disk space",
+    "resolved": true
+  }
+}

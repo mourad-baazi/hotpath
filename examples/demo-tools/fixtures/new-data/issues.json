@@ -1,0 +1,33 @@
+{
+  "billing-service": [
+    {
+      "number": 56,
+      "title": "Duplicate invoice emails on retry",
+      "labels": ["bug"]
+    }
+  ],
+  "mobile-app": [
+    {
+      "number": 310,
+      "title": "Dark mode flashes white on launch",
+      "labels": ["bug"]
+    },
+    {
+      "number": 315,
+      "title": "Add biometric login",
+      "labels": ["feature"]
+    },
+    {
+      "number": 317,
+      "title": "Push notifications arrive late on Android 14",
+      "labels": ["bug"]
+    }
+  ],
+  "docs-site": [
+    {
+      "number": 19,
+      "title": "Search misses the changelog",
+      "labels": ["bug"]
+    }
+  ]
+}

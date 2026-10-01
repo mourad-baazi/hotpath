@@ -1,7 +1,7 @@
 {
   "name": "demo-tools",
   "version": "0.1.0",
-  "description": "Fake MCP tools server (emails, calendar, weather, send_message) with default, new-data and drift fixtures",
+  "description": "Fake MCP tools servers for the morning-brief (emails, calendar, weather) and weekly-report (repos, commits, issues, incidents, metrics) demo tasks, with default, new-data and drift fixtures",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

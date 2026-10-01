@@ -29,6 +29,11 @@ const BASE_URL =
 
 let client: OpenAI | null = null;
 
+/** Test seam: inject a fake client (or null to reset). */
+export function setClientForTesting(fake: OpenAI | null): void {
+  client = fake;
+}
+
 function getClient(): OpenAI {
   if (!client) {
     const apiKey = process.env.LLM_API_KEY ?? process.env.MOONSHOT_API_KEY;
@@ -37,7 +42,8 @@ function getClient(): OpenAI {
         "LLM_API_KEY is not set — copy .env.example to .env and fill it in",
       );
     }
-    client = new OpenAI({ apiKey, baseURL: BASE_URL });
+    // more retries than the SDK default (2): free-tier per-minute limits are tight
+    client = new OpenAI({ apiKey, baseURL: BASE_URL, maxRetries: 6 });
   }
   return client;
 }
@@ -67,13 +73,34 @@ export interface LlmResult {
   llmCalls: number;
 }
 
+export type ReasoningEffort = "low" | "medium" | "high";
+
+/** HOTPATH_CHEAP_REASONING: unset/empty = provider default. */
+export function parseReasoningEffort(
+  raw: string | undefined,
+): ReasoningEffort | undefined {
+  const value = raw?.trim().toLowerCase();
+  if (!value) return undefined;
+  if (value === "low" || value === "medium" || value === "high") return value;
+  throw new Error(
+    `HOTPATH_CHEAP_REASONING="${raw}" is not valid — use low, medium or high (or leave it unset)`,
+  );
+}
+
+/** Reasoning effort for the cheap model (workflow llm steps), read from the env on use. */
+export function cheapReasoning(): ReasoningEffort | undefined {
+  return parseReasoningEffort(process.env.HOTPATH_CHEAP_REASONING);
+}
+
 // The ONLY place in the repo that talks to an LLM API.
 export async function chat(options: {
   model: string;
   messages: ChatMessage[];
   tools?: LlmToolSpec[];
+  /** sent as reasoning_effort; dropped (once) if the provider rejects it */
+  reasoningEffort?: ReasoningEffort;
 }): Promise<LlmResult> {
-  const response = await getClient().chat.completions.create({
+  const request = {
     model: options.model,
     messages: options.messages.map(toOpenAiMessage),
     tools: options.tools?.map((t) => ({
@@ -84,8 +111,26 @@ export async function chat(options: {
         parameters: t.parameters,
       },
     })),
-    tool_choice: options.tools && options.tools.length > 0 ? "auto" : undefined,
-  });
+    tool_choice:
+      options.tools && options.tools.length > 0 ? ("auto" as const) : undefined,
+  };
+  const completions = getClient().chat.completions;
+  let response;
+  if (options.reasoningEffort === undefined) {
+    response = await completions.create(request);
+  } else {
+    try {
+      response = await completions.create({
+        ...request,
+        reasoning_effort: options.reasoningEffort,
+      });
+    } catch (err) {
+      // Not every provider/model knows reasoning_effort: retry without it.
+      const status = err instanceof OpenAI.APIError ? err.status : undefined;
+      if (status !== 400 && status !== 422) throw err;
+      response = await completions.create(request);
+    }
+  }
 
   const choice = response.choices[0];
   const toolCalls: LlmToolCall[] = (choice.message.tool_calls ?? []).map(

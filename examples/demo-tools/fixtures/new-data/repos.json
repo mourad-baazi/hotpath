@@ -1,0 +1,16 @@
+{
+  "repos": [
+    {
+      "id": "r1",
+      "name": "billing-service"
+    },
+    {
+      "id": "r2",
+      "name": "mobile-app"
+    },
+    {
+      "id": "r3",
+      "name": "docs-site"
+    }
+  ]
+}

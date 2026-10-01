@@ -1,0 +1,10 @@
+{
+  "INC-205": {
+    "id": "INC-205",
+    "title": "Elevated API latency",
+    "severity": "medium",
+    "duration_minutes": 41,
+    "root_cause": "A cache node was evicted during a routine maintenance window",
+    "resolved": true
+  }
+}

@@ -2,7 +2,11 @@
   "tasks": {
     "morning-brief": {
       "agent": "pnpm --filter demo-agent start --",
-      "server": "pnpm --silent --filter demo-tools start"
+      "server": "node examples/demo-tools/dist/index.js"
+    },
+    "weekly-report": {
+      "agent": "pnpm --filter demo-agent start --",
+      "server": "node examples/demo-tools/dist/weekly.js"
     }
   }
 }

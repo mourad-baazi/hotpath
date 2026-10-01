@@ -10,6 +10,8 @@ import { compileTask, loadWorkflow, workflowsDir } from "hotpath-compiler";
 import {
   CHEAP_MODEL,
   chat,
+  cheapReasoning,
+  formatMs,
   renderTemplate,
   usdCost,
   type StepGuard,
@@ -52,6 +54,10 @@ export interface RunMetrics {
   costUsd: number;
   fallback: boolean;
   steps: StepRunResult[];
+  /** time split: MCP server start + connect, tool steps, llm steps (all in ms) */
+  connectMs: number;
+  toolMs: number;
+  llmMs: number;
   /** tool calls actually made, in order (bench compares them with the trace) */
   toolCalls: Array<{ tool: string; args: Record<string, unknown> }>;
   /** set when a guard failed */
@@ -233,6 +239,7 @@ export async function runWorkflow(
   });
   const client = new Client({ name: "hotpath-runtime", version: "0.1.0" });
   await client.connect(transport);
+  const connectMs = Date.now() - start;
 
   const ctx: TemplateContext = { inputs: options.inputs, steps: {} };
   const steps: StepRunResult[] = [];
@@ -240,6 +247,8 @@ export async function runWorkflow(
   let promptTokens = 0;
   let completionTokens = 0;
   let sideEffectRan = false;
+  let toolMs = 0;
+  let llmMs = 0;
   const toolCalls: RunMetrics["toolCalls"] = [];
 
   const buildMetrics = (extra: Partial<RunMetrics> = {}): RunMetrics => ({
@@ -250,6 +259,9 @@ export async function runWorkflow(
     costUsd: usdCost(CHEAP_MODEL, promptTokens, completionTokens),
     fallback: false,
     steps,
+    connectMs,
+    toolMs,
+    llmMs,
     toolCalls,
     ...extra,
   });
@@ -257,8 +269,12 @@ export async function runWorkflow(
   try {
     for (const step of workflow.steps) {
       const stepStart = Date.now();
-      const record = (ok: boolean) =>
-        steps.push({ id: step.id, durationMs: Date.now() - stepStart, ok });
+      const record = (ok: boolean) => {
+        const durationMs = Date.now() - stepStart;
+        steps.push({ id: step.id, durationMs, ok });
+        if (step.type === "llm") llmMs += durationMs;
+        else toolMs += durationMs;
+      };
       const drift = async (reason: string): Promise<never> => {
         record(false);
         const metrics = buildMetrics({ driftStep: step.id, reason });
@@ -267,10 +283,17 @@ export async function runWorkflow(
       };
 
       if (step.type === "llm") {
-        const prompt = `${renderTemplate(step.prompt, ctx) as string}\n\nMatch the style and length of this example: ${step.example}`;
+        // The example is from the recorded run: without the warning, small
+        // models copy its facts instead of using this run's data.
+        const prompt =
+          `${renderTemplate(step.prompt, ctx) as string}\n\n` +
+          "Use only the data above. The example below comes from an earlier run on different data, so its facts must not be copied. " +
+          `Write about ${step.example.length} characters. ` +
+          `Match the style and length of this example: ${step.example}`;
         const result = await chat({
           model: CHEAP_MODEL,
           messages: [{ role: "user", content: prompt }],
+          reasoningEffort: cheapReasoning(),
         });
         llmCalls += result.llmCalls;
         promptTokens += result.promptTokens;
@@ -316,7 +339,8 @@ export async function runWorkflow(
   const calls =
     metrics.llmCalls === 1 ? "1 llm call" : `${metrics.llmCalls} llm calls`;
   console.log(
-    `✓ ${workflow.task} in ${(metrics.durationMs / 1000).toFixed(1)}s, $${metrics.costUsd.toFixed(4)} (${calls})`,
+    `✓ ${workflow.task} in ${(metrics.durationMs / 1000).toFixed(1)}s, $${metrics.costUsd.toFixed(4)} (${calls})` +
+      ` · startup ${formatMs(metrics.connectMs)} + tools ${formatMs(metrics.toolMs)} + llm ${formatMs(metrics.llmMs)}`,
   );
   return metrics;
 }

@@ -1,0 +1,9 @@
+{
+  "incidents": [
+    {
+      "id": "INC-101",
+      "title": "Database failover during checkout",
+      "severity": "high"
+    }
+  ]
+}

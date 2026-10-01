@@ -1,0 +1,16 @@
+{
+  "repos": [
+    {
+      "id": "r1",
+      "slug": "payments-api"
+    },
+    {
+      "id": "r2",
+      "slug": "web-app"
+    },
+    {
+      "id": "r3",
+      "slug": "infra-tools"
+    }
+  ]
+}
