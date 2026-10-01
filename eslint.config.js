@@ -11,6 +11,7 @@ export default tseslint.config(
       "traces/**",
       "workflows/**",
       "out/**",
+      "site/.astro/**",
     ],
   },
 );

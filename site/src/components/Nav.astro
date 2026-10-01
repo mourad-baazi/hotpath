@@ -1,0 +1,74 @@
+---
+import GithubMark from "./GithubMark.astro";
+import Icon from "./Icon.astro";
+import Logo from "./Logo.astro";
+import { GITHUB_URL } from "../content";
+---
+
+<header class="sticky top-0 z-40 border-b border-line/70 bg-bg/80 backdrop-blur-md">
+  <nav class="wrap flex h-14 items-center gap-6" aria-label="Main">
+    <a href="/" class="text-fg" aria-label="Hotpath home"><Logo /></a>
+    <div class="hidden items-center gap-5 text-sm text-muted md:flex">
+      <a href="#how" class="transition-colors hover:text-fg">How it works</a>
+      <a href="#proof" class="transition-colors hover:text-fg">Proof</a>
+      <a href="#features" class="transition-colors hover:text-fg">Features</a>
+      <a href="#faq" class="transition-colors hover:text-fg">FAQ</a>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <button
+        type="button"
+        id="theme-toggle"
+        class="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        aria-label="Toggle dark mode"
+      >
+        <span class="theme-icon-dark"><Icon name="Moon" /></span>
+        <span class="theme-icon-light"><Icon name="Sun" /></span>
+      </button>
+      <a
+        href={GITHUB_URL}
+        class="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+        aria-label="Hotpath on GitHub"
+      >
+        <GithubMark />
+      </a>
+      <a href="#cloud" class="btn-primary hidden py-1.5 sm:inline-flex">Join the Cloud waitlist</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  .theme-icon-light {
+    display: none;
+  }
+  :global([data-theme="dark"]) .theme-icon-dark {
+    display: none;
+  }
+  :global([data-theme="dark"]) .theme-icon-light {
+    display: inline;
+  }
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme="light"])) .theme-icon-dark {
+      display: none;
+    }
+    :global(:root:not([data-theme="light"])) .theme-icon-light {
+      display: inline;
+    }
+  }
+</style>
+
+<script>
+  const root = document.documentElement;
+  const isDark = () =>
+    root.dataset.theme
+      ? root.dataset.theme === "dark"
+      : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.getElementById("theme-toggle")?.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // private mode: the choice lasts for this page only
+    }
+  });
+</script>

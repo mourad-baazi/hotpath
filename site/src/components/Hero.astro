@@ -1,0 +1,61 @@
+---
+import CopyCommand from "./CopyCommand.astro";
+import GithubMark from "./GithubMark.astro";
+import Icon from "./Icon.astro";
+import TraceCollapse from "./TraceCollapse.astro";
+import { GITHUB_URL, INSTALL } from "../content";
+---
+
+<section class="hero relative overflow-hidden">
+  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="wrap relative grid items-center gap-12 pt-14 pb-16 sm:pt-20 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:pt-24 lg:pb-24">
+    <div class="min-w-0">
+      <a href={GITHUB_URL} class="pill bg-surface text-muted transition-colors hover:text-fg">
+        <span class="size-1.5 rounded-full bg-ok" aria-hidden="true"></span>
+        Open source · MCP · Apache-2.0
+      </a>
+      <h1 class="mt-6 text-[2.6rem] leading-[1.05] font-semibold tracking-tight text-balance sm:text-6xl lg:text-[4rem]">
+        Your agent thinks once.<br />
+        <span class="text-accent">Hotpath runs it forever.</span>
+      </h1>
+      <p class="lead mt-6">
+        Record an AI agent's tool calls, drop its mistakes, and replay the task as a workflow that uses
+        AI only where judgment is needed. On our demo tasks: 3–5× faster and about 10× cheaper than the agent.
+      </p>
+      <CopyCommand command={INSTALL} class="mt-8 max-w-xl" />
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <a href="#how" class="btn-primary">See how it works <Icon name="ArrowDown" size={16} /></a>
+        <a href={GITHUB_URL} class="btn-ghost"><GithubMark size={16} /> Star on GitHub</a>
+      </div>
+      <p class="mt-4 text-xs text-muted">npm package coming soon. Works with Node 22+ on Windows, macOS and Linux.</p>
+    </div>
+    <div class="relative min-w-0">
+      <TraceCollapse />
+      <p class="mt-3 text-center text-xs text-muted">
+        Illustration of a real recording: Claude Code did the task once with 4 failed calls.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60rem 30rem at 85% -10%, var(--glow), transparent 60%),
+      radial-gradient(40rem 24rem at -10% 10%, var(--ai-soft), transparent 60%);
+    mask-image: linear-gradient(to bottom, black 60%, transparent);
+  }
+  .hero-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 44px 44px;
+    opacity: 0.35;
+    mask-image: radial-gradient(ellipse at 70% 30%, black 20%, transparent 70%);
+  }
+</style>

@@ -8,3 +8,4 @@ pnpm-lock.yaml
 AGENTS.md
 docs/SPEC.md
 docs/PROGRESS.md
+site/.astro

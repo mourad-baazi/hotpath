@@ -1,0 +1,24 @@
+---
+// Lucide icons (official lucide-static package), inlined at build time.
+import * as icons from "lucide-static";
+
+interface Props {
+  name: keyof typeof icons;
+  size?: number;
+  class?: string;
+  label?: string;
+}
+
+const { name, size = 18, class: className = "", label } = Astro.props;
+const raw = String(icons[name] ?? "");
+const svg = raw
+  .replace(/<!--.*?-->/s, "")
+  .replace(/width="24"/, `width="${size}"`)
+  .replace(/height="24"/, `height="${size}"`)
+  .replace(
+    /class="([^"]*)"/,
+    `class="$1 ${className}" ${label ? `role="img" aria-label="${label}"` : 'aria-hidden="true"'}`,
+  );
+---
+
+<Fragment set:html={svg} />

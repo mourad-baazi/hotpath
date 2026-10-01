@@ -1,0 +1,14 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: className = "" } = Astro.props;
+---
+
+<span class={`inline-flex items-center gap-2 font-semibold tracking-tight ${className}`}>
+  <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true">
+    <rect width="32" height="32" rx="8" fill="var(--text)"></rect>
+    <path d="M9 22.5 15 16l-4-1.5L19 7l-2 7.5 5 1.5-9 9z" fill="var(--accent)"></path>
+  </svg>
+  <span>hotpath</span>
+</span>

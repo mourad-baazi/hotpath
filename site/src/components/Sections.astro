@@ -1,0 +1,190 @@
+---
+// How it works, proof, works with, features and FAQ.
+import Icon from "./Icon.astro";
+import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STATS, STEPS } from "../content";
+---
+
+<section id="how" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2 class="h2 mt-3">Like a JIT compiler, for agent tasks.</h2>
+    <p class="lead mt-4">
+      A JIT compiler finds the code that runs most often, the hot path, and compiles it. Hotpath does
+      that for the tasks your agent repeats every day.
+    </p>
+    <ol class="mt-12 grid gap-4 md:grid-cols-3">
+      {
+        STEPS.map((s, i) => (
+          <li class="card relative flex min-w-0 flex-col p-6">
+            <div class="flex items-center gap-3">
+              <span class="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent">
+                <Icon name={s.icon} size={18} />
+              </span>
+              <span class="font-mono text-xs text-muted">{s.n}</span>
+              <h3 class="text-lg font-semibold">{s.title}</h3>
+            </div>
+            <p class="mt-4 flex-1 text-[15px] text-muted">{s.text}</p>
+            <div class="mt-6 overflow-hidden rounded-lg border border-line bg-surface-2 font-mono text-[12px] leading-5">
+              <div class="truncate px-3 pt-2.5 text-fg">
+                <span class="text-accent select-none">$ </span>
+                {s.cmd}
+              </div>
+              <div class:list={["truncate px-3 pt-1 pb-2.5", i === 2 ? "text-ok" : "text-muted"]}>{s.out}</div>
+            </div>
+            {i < 2 && (
+              <span class="absolute top-1/2 -right-3 z-10 hidden -translate-y-1/2 rounded-full border border-line bg-bg p-1 text-muted md:block" aria-hidden="true">
+                <Icon name="ChevronRight" size={14} />
+              </span>
+            )}
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<section id="proof" class="scroll-mt-16 border-t border-line bg-surface/40 py-20 sm:py-28">
+  <div class="wrap">
+    <p class="eyebrow">Proof</p>
+    <h2 class="h2 mt-3">Recorded Claude Code once. Replayed it on new data.</h2>
+    <p class="lead mt-4">
+      A real run, not a mockup: Claude Code did a morning brief through Hotpath, made 4 mistakes along the way,
+      and Hotpath kept the 5 steps that mattered.
+    </p>
+
+    <dl class="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-4">
+      {
+        STATS.map((s) => (
+          <div class="bg-surface p-5 sm:p-6">
+            <dt class="text-sm text-muted">{s.label}</dt>
+            <dd class="num mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{s.value}</dd>
+            <dd class="mt-1 text-xs text-muted">{s.note}</dd>
+          </div>
+        ))
+      }
+    </dl>
+
+    <div class="mt-10 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <div class="card overflow-hidden">
+        <div class="flex items-center justify-between border-b border-line px-5 py-3">
+          <h3 class="font-medium">Benchmark: agent vs. Hotpath</h3>
+          <span class="pill text-muted">single run · Groq</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="num w-full min-w-[560px] text-left text-sm whitespace-nowrap">
+            <thead class="text-xs text-muted">
+              <tr class="border-b border-line">
+                <th scope="col" class="px-5 py-2.5 font-medium">Scenario</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Agent</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Hotpath</th>
+                <th scope="col" class="px-3 py-2.5 font-medium">Faster</th>
+                <th scope="col" class="px-5 py-2.5 font-medium">Cheaper</th>
+              </tr>
+            </thead>
+            <tbody class="font-mono text-[13px]">
+              {
+                BENCH.map((r) => (
+                  <tr class="border-b border-line last:border-0">
+                    <th scope="row" class="px-5 py-3 font-sans font-normal text-fg">{r.scenario}</th>
+                    <td class="px-3 py-3 text-muted">{r.agent}</td>
+                    <td class="px-3 py-3 text-fg">{r.hotpath}</td>
+                    <td class="px-3 py-3 text-ok">{r.faster}</td>
+                    <td class="px-5 py-3 text-ok">{r.cheaper}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="border-t border-line px-5 py-3 text-xs text-muted">
+          Small demo tasks, one run each, rate-limit waits excluded, costs from placeholder per-token prices.{" "}
+          <a href={BENCHMARK_URL} class="text-accent underline underline-offset-4 hover:decoration-2">Full results and limits →</a>
+        </p>
+      </div>
+      <figure class="card overflow-hidden">
+        <img
+          src="/demo.gif"
+          alt="Screen recording: Claude Code doing the morning brief through the Hotpath recorder"
+          width="800"
+          height="450"
+          loading="lazy"
+          decoding="async"
+          class="h-auto w-full bg-[#0b0d12]"
+        />
+        <figcaption class="border-t border-line px-5 py-3 text-xs text-muted">
+          The real recording: Claude Code doing the task once, through Hotpath.
+        </figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="border-t border-line py-14">
+  <div class="wrap flex flex-col items-center gap-6 text-center md:flex-row md:justify-between md:text-left">
+    <p class="text-sm text-muted">Works with any agent that speaks MCP over stdio</p>
+    <ul class="flex flex-wrap justify-center gap-3">
+      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="SquareTerminal" size={16} /> Claude Code</li>
+      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="Bot" size={16} /> OpenClaw</li>
+      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="Plug" size={16} /> Any stdio MCP server</li>
+    </ul>
+  </div>
+</section>
+
+<section id="features" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+  <div class="wrap">
+    <p class="eyebrow">Features</p>
+    <h2 class="h2 mt-3">Almost everything is plain code. One step is AI.</h2>
+    <p class="lead mt-4">
+      That's the whole idea: grey boxes run as code, the purple box is the only place a model is called.
+    </p>
+    <div class="mt-10 flex flex-wrap items-center gap-2 font-mono text-xs" aria-label="Example workflow: four tool steps and one AI step">
+      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_emails</span>
+      <span class="text-muted" aria-hidden="true">→</span>
+      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_calendar</span>
+      <span class="text-muted" aria-hidden="true">→</span>
+      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_weather</span>
+      <span class="text-muted" aria-hidden="true">→</span>
+      <span class="rounded-md border border-ai bg-ai-soft px-2.5 py-1.5 text-ai">AI: write the brief</span>
+      <span class="text-muted" aria-hidden="true">→</span>
+      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">send_message <span class="text-warn">⚡</span></span>
+    </div>
+    <ul class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {
+        FEATURES.map((f) => (
+          <li class="card p-6 transition-colors duration-150 hover:border-muted/40">
+            <span class="grid size-9 place-items-center rounded-lg bg-surface-2 text-fg">
+              <Icon name={f.icon} size={18} />
+            </span>
+            <h3 class="mt-4 font-semibold">{f.title}</h3>
+            <p class="mt-2 text-[15px] text-muted">{f.text}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>
+
+<section id="faq" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+  <div class="wrap grid gap-10 lg:grid-cols-[1fr_1.6fr]">
+    <div>
+      <p class="eyebrow">Honest limits</p>
+      <h2 class="h2 mt-3">Questions, answered straight.</h2>
+      <p class="lead mt-4">Hotpath is early and says so. Here is what it does and doesn't do today.</p>
+    </div>
+    <div class="divide-y divide-line border-y border-line">
+      {
+        FAQ.map((item) => (
+          <details class="group py-1">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium [&::-webkit-details-marker]:hidden">
+              {item.q}
+              <span class="text-muted transition-transform duration-200 group-open:rotate-45" aria-hidden="true">
+                <Icon name="Plus" size={18} />
+              </span>
+            </summary>
+            <p class="pb-5 text-[15px] text-muted">{item.a}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>

@@ -7,3 +7,4 @@ dist/
 bench/results.json
 *.log
 /.hotpath/
+/site/.astro/

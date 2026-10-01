@@ -1,0 +1,138 @@
+---
+import Icon from "./Icon.astro";
+import { GITHUB_URL } from "../content";
+
+// A hosted form backend (Formspree, Tally, a Cloudflare Worker…) that accepts a
+// JSON POST. Without one configured at build time the form says so honestly.
+const endpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT ?? "";
+const perks = [
+  { icon: "Cloud", text: "Your schedules run 24/7, laptop closed" },
+  { icon: "LayoutDashboard", text: "Dashboard: runs, costs and savings at a glance" },
+  { icon: "BellRing", text: "Alerts on drift and failures, where your team is" },
+  { icon: "Users", text: "Share workflows with your team" },
+] as const;
+---
+
+<section id="cloud" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+  <div class="wrap">
+    <div class="cloud card relative overflow-hidden p-6 sm:p-10 lg:p-12">
+      <div class="cloud-glow" aria-hidden="true"></div>
+      <div class="relative grid gap-10 lg:grid-cols-2 lg:gap-14">
+        <div>
+          <p class="eyebrow">Hotpath Cloud · coming later</p>
+          <h2 class="h2 mt-3">Runs 24/7 without your laptop.</h2>
+          <p class="lead mt-4">
+            The open-source CLI stays free. Cloud is for when your workflows should keep running while you sleep.
+          </p>
+          <ul class="mt-8 space-y-3">
+            {
+              perks.map((p) => (
+                <li class="flex items-center gap-3 text-[15px]">
+                  <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+                    <Icon name={p.icon} size={16} />
+                  </span>
+                  {p.text}
+                </li>
+              ))
+            }
+          </ul>
+        </div>
+
+        <form id="waitlist" class="flex flex-col gap-4 self-center" data-endpoint={endpoint} novalidate>
+          <div>
+            <label for="wl-email" class="text-sm font-medium">Email</label>
+            <input
+              id="wl-email"
+              name="email"
+              type="email"
+              required
+              autocomplete="email"
+              placeholder="you@company.com"
+              class="mt-1.5 w-full rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[15px] placeholder:text-muted/70 focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div>
+            <label for="wl-task" class="text-sm font-medium">
+              What would you automate? <span class="font-normal text-muted">(optional)</span>
+            </label>
+            <textarea
+              id="wl-task"
+              name="automate"
+              rows="3"
+              maxlength="500"
+              placeholder="e.g. a daily digest of new GitHub issues, posted to Slack"
+              class="mt-1.5 w-full resize-y rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[15px] placeholder:text-muted/70 focus:border-accent focus:outline-none"
+            ></textarea>
+          </div>
+          <!-- bots fill every field; people never see this one -->
+          <input type="text" name="company" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
+          <button type="submit" class="btn-primary py-3 text-[15px]">Join the waitlist</button>
+          <p class="wl-status min-h-5 text-sm" role="status" aria-live="polite"></p>
+          <p class="text-xs text-muted">
+            We store your email, and your answer if you give one, only to tell you when Cloud opens. No tracking, no
+            sharing. Every email has an unsubscribe link; reply to any of them and we delete your data.
+          </p>
+        </form>
+      </div>
+    </div>
+    <p class="mt-6 text-center text-sm text-muted">
+      Rather follow along on GitHub?{" "}
+      <a href={GITHUB_URL} class="text-accent underline underline-offset-4 hover:decoration-2">Star the repo</a>{" "}
+      and watch releases.
+    </p>
+  </div>
+</section>
+
+<style>
+  .cloud-glow {
+    position: absolute;
+    inset: -40% -10% auto auto;
+    width: 36rem;
+    height: 36rem;
+    background: radial-gradient(closest-side, var(--glow), transparent);
+  }
+</style>
+
+<script>
+  const form = document.getElementById("waitlist") as HTMLFormElement | null;
+  if (form) {
+    const status = form.querySelector<HTMLElement>(".wl-status")!;
+    const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    const say = (text: string, tone: "ok" | "error" | "muted") => {
+      status.textContent = text;
+      status.style.color = `var(--${tone === "muted" ? "text-muted" : tone === "ok" ? "ok" : "danger"})`;
+    };
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const email = String(data.get("email") ?? "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        say("Please enter a valid email address.", "error");
+        form.querySelector<HTMLInputElement>("#wl-email")?.focus();
+        return;
+      }
+      if (data.get("company")) return; // honeypot
+      const endpoint = form.dataset.endpoint;
+      if (!endpoint) {
+        say("The waitlist isn't open yet. Star the repo on GitHub to hear first.", "muted");
+        return;
+      }
+      button.disabled = true;
+      say("Sending…", "muted");
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ email, automate: String(data.get("automate") ?? "").trim() }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        form.reset();
+        say("You're on the list. We'll email you once, when Cloud opens.", "ok");
+      } catch {
+        say("That didn't go through. Please try again in a minute.", "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+</script>

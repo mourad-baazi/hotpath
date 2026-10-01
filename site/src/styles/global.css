@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/* Hotpath design tokens (ship/design/DESIGN.md). Light by default, dark from
+   the OS or from an explicit data-theme; components only use tokens. */
+:root {
+  --bg: #fafaf9;
+  --surface: #ffffff;
+  --surface-2: #f3f4f6;
+  --border: #e5e7eb;
+  --text: #111318;
+  --text-muted: #5b6472;
+  --accent: #c2410c;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(194 65 12 / 0.1);
+  --ai: #5a49e0;
+  --ai-soft: rgb(90 73 224 / 0.1);
+  --ok: #15803d;
+  --warn: #b45309;
+  --danger: #b91c1c;
+  --danger-soft: rgb(185 28 28 / 0.07);
+  --shadow: 0 1px 2px rgb(17 19 24 / 0.04), 0 8px 24px rgb(17 19 24 / 0.06);
+  --glow: rgb(194 65 12 / 0.12);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0b0d12;
+  --surface: #12151c;
+  --surface-2: #1a1e27;
+  --border: #262b36;
+  --text: #e8eaee;
+  --text-muted: #9aa3b2;
+  --accent: #ff6a2b;
+  --accent-fg: #0b0d12;
+  --accent-soft: rgb(255 106 43 / 0.12);
+  --ai: #8b7cff;
+  --ai-soft: rgb(139 124 255 / 0.14);
+  --ok: #3dd68c;
+  --warn: #f5b83d;
+  --danger: #ff5c5c;
+  --danger-soft: rgb(255 92 92 / 0.1);
+  --shadow: none;
+  --glow: rgb(255 106 43 / 0.16);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0d12;
+    --surface: #12151c;
+    --surface-2: #1a1e27;
+    --border: #262b36;
+    --text: #e8eaee;
+    --text-muted: #9aa3b2;
+    --accent: #ff6a2b;
+    --accent-fg: #0b0d12;
+    --accent-soft: rgb(255 106 43 / 0.12);
+    --ai: #8b7cff;
+    --ai-soft: rgb(139 124 255 / 0.14);
+    --ok: #3dd68c;
+    --warn: #f5b83d;
+    --danger: #ff5c5c;
+    --danger-soft: rgb(255 92 92 / 0.1);
+    --shadow: none;
+    --glow: rgb(255 106 43 / 0.16);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: "Geist Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-mono:
+    "Geist Mono Variable", "JetBrains Mono", ui-monospace, SFMono-Regular,
+    monospace;
+  --shadow-card: var(--shadow);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  code,
+  kbd,
+  pre {
+    @apply font-mono;
+  }
+}
+
+@utility wrap {
+  @apply mx-auto w-full max-w-[1120px] px-4 sm:px-6;
+}
+@utility eyebrow {
+  @apply font-mono text-xs tracking-wider text-accent uppercase;
+}
+@utility h2 {
+  @apply text-3xl font-semibold tracking-tight text-balance sm:text-4xl;
+}
+@utility lead {
+  @apply max-w-[62ch] text-lg text-pretty text-muted;
+}
+@utility card {
+  @apply rounded-xl border border-line bg-surface shadow-card;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-[filter,background-color] duration-150 ease-out;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-accent-fg hover:brightness-110 disabled:opacity-60;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-surface text-fg hover:bg-surface-2;
+}
+@utility pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-0.5 font-mono text-xs;
+}
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
