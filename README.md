@@ -200,10 +200,3 @@ Contributions are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md). In short
 ## License
 
 [Apache-2.0](LICENSE) © 2026 Mourad Baazi
-
-<!--
-TODO: record the demo GIF (record → compile → run → view on the morning-brief
-task), save it as docs/demo.gif, and add it under the title at the top:
-
-![demo](docs/demo.gif)
--->
