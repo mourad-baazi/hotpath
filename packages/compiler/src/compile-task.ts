@@ -60,6 +60,16 @@ export async function saveWorkflow(workflow: Workflow): Promise<void> {
   );
 }
 
+/** "compiled 5 steps (dropped 4 failed/retried calls) → workflows/x.json (from …)" */
+export function formatCompileResult(workflow: Workflow): string {
+  const dropped = workflow.droppedCalls?.length ?? 0;
+  const note =
+    dropped > 0
+      ? ` (dropped ${dropped} failed/retried call${dropped === 1 ? "" : "s"})`
+      : "";
+  return `compiled ${workflow.steps.length} steps${note} → workflows/${workflow.task}.json (from ${workflow.compiledFrom})`;
+}
+
 // `hotpath compile <task> [--trace <file>]` → workflows/<task>.json
 export async function compileTask(
   task: string,

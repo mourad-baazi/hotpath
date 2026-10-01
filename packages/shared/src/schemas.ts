@@ -101,6 +101,22 @@ export const workflowInputSchema = z.object({
 });
 export type WorkflowInput = z.infer<typeof workflowInputSchema>;
 
+/**
+ * A recorded call the compiler left out because it failed (isError) —
+ * "retried" if the same tool later succeeded, "failed" if it never did.
+ */
+export const droppedCallSchema = z.object({
+  /** tool_call.seq in the trace */
+  seq: z.number().int().positive(),
+  /** line number in the trace file (meta is line 1) */
+  line: z.number().int().positive(),
+  tool: z.string(),
+  reason: z.enum(["failed", "retried"]),
+  /** start of the error text the tool returned */
+  error: z.string().optional(),
+});
+export type DroppedCall = z.infer<typeof droppedCallSchema>;
+
 export const workflowSchema = z.object({
   version: z.literal(1),
   task: z.string(),
@@ -108,5 +124,7 @@ export const workflowSchema = z.object({
   server: z.string(),
   inputs: z.record(z.string(), workflowInputSchema),
   steps: z.array(workflowStepSchema),
+  /** failed/retried calls from the trace that did not become steps */
+  droppedCalls: z.array(droppedCallSchema).optional(),
 });
 export type Workflow = z.infer<typeof workflowSchema>;

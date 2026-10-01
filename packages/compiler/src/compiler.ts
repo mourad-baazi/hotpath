@@ -1,5 +1,6 @@
 import {
   mentions,
+  type DroppedCall,
   type GroundingEntry,
   type TraceFile,
   type Workflow,
@@ -22,10 +23,15 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
 
   const inputEntries = Object.entries(trace.meta.inputs);
 
+  // rule 0: calls that errored never become steps. A real agent often retries
+  // (wrong arguments, then right ones); replaying its mistakes would repeat the
+  // errors, or worse, send a message twice.
+  const { kept, dropped } = splitFailedCalls(trace);
+
   let nextId = 1;
   const newId = () => `s${nextId++}`;
 
-  for (const call of trace.calls) {
+  for (const call of kept) {
     const annotations = annotationsByTool.get(call.tool);
     const sideEffect = !(annotations?.readOnlyHint === true);
 
@@ -114,6 +120,7 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
       ]),
     ),
     steps,
+    ...(dropped.length > 0 ? { droppedCalls: dropped } : {}),
   };
 }
 
@@ -153,6 +160,38 @@ export function collectGrounding(
   };
   for (const { id, result } of results) visit(id, result, []);
   return [...byValue.values()];
+}
+
+/** Errored calls (tool errors and MCP protocol errors) are set aside. */
+function splitFailedCalls(trace: TraceFile): {
+  kept: TraceFile["calls"];
+  dropped: DroppedCall[];
+} {
+  const kept: TraceFile["calls"] = [];
+  const dropped: DroppedCall[] = [];
+  trace.calls.forEach((call, i) => {
+    if (!call.isError) {
+      kept.push(call);
+      return;
+    }
+    const retried = trace.calls
+      .slice(i + 1)
+      .some((later) => later.tool === call.tool && !later.isError);
+    dropped.push({
+      seq: call.seq,
+      line: i + 2, // trace file: meta is line 1, then the calls in order
+      tool: call.tool,
+      reason: retried ? "retried" : "failed",
+      error: errorPreview(call.result),
+    });
+  });
+  return { kept, dropped };
+}
+
+function errorPreview(result: unknown): string | undefined {
+  const text = typeof result === "string" ? result : JSON.stringify(result);
+  if (!text) return undefined;
+  return text.length > 160 ? `${text.slice(0, 160)}…` : text;
 }
 
 function isLlmWrittenText(value: string): boolean {

@@ -1,6 +1,11 @@
 import { Command, InvalidArgumentError } from "commander";
 
-import { compileTask, formatWorkflow, loadWorkflow } from "hotpath-compiler";
+import {
+  compileTask,
+  formatCompileResult,
+  formatWorkflow,
+  loadWorkflow,
+} from "hotpath-compiler";
 import { runRecorder } from "hotpath-recorder";
 import { runTask } from "hotpath-runtime";
 import { startViewer } from "hotpath-viewer";
@@ -49,9 +54,7 @@ export function createProgram(): Command {
     .option("--trace <file>", "trace file (default: latest trace for the task)")
     .action(async (task: string, options: { trace?: string }) => {
       const workflow = await compileTask(task, options.trace);
-      console.log(
-        `compiled ${workflow.steps.length} steps → workflows/${task}.json (from ${workflow.compiledFrom})`,
-      );
+      console.log(formatCompileResult(workflow));
     });
 
   program
