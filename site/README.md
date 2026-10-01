@@ -1,4 +1,4 @@
-# usehotpath.com
+# hotpath.run
 
 The Hotpath landing page and Hotpath Cloud waitlist. Astro (static output) + Tailwind CSS
 v4, the design tokens from `ship/design/DESIGN.md`, Geist fonts and Lucide icons, all
@@ -51,14 +51,23 @@ Worker writing to KV…). Keep the privacy note in `Cloud.astro` true for whatev
 
 ## Deploy
 
-**Cloudflare Pages:** Create project → connect the GitHub repo →
-build command `pnpm --filter site build`, output directory `site/dist`, environment
-variables `PUBLIC_WAITLIST_ENDPOINT` (and optionally `PUBLIC_CF_BEACON_TOKEN` for
-Cloudflare Web Analytics, cookie-free). Then Custom domains → add `usehotpath.com`;
-HTTPS is automatic.
+The domain `hotpath.run` is registered at Namecheap; the site is hosted on Cloudflare
+Pages (free).
 
-**Vercel:** import the repo, root directory `site`, framework Astro, same environment
-variables, then add the domain.
+1. **Move DNS to Cloudflare** (needed for a root domain on Pages): in Cloudflare,
+   Add a domain → `hotpath.run` → Free plan. Cloudflare shows two nameservers. In
+   Namecheap → Domain List → `hotpath.run` → Manage → Nameservers → **Custom DNS**, paste
+   both and save. It usually takes minutes, up to 24 hours.
+2. **Create the Pages project:** Workers & Pages → Create → Pages → Connect to Git →
+   the repo. Build command `pnpm --filter site build`, output directory `site/dist`.
+   No environment variables are needed (optional: `PUBLIC_CF_BEACON_TOKEN` for
+   cookie-free Cloudflare Web Analytics, `PUBLIC_WAITLIST_ENDPOINT` to override the form).
+3. **Connect the domain:** the Pages project → Custom domains → add `hotpath.run`, then
+   `www.hotpath.run` (Cloudflare can redirect www to the root). HTTPS is automatic.
+4. **Test:** open https://hotpath.run, sign up with your own email, check it in Formspree.
+
+**Vercel instead:** import the repo, root directory `site`, framework Astro, then add
+`hotpath.run`; in Namecheap → Advanced DNS add the A record and CNAME Vercel shows.
 
 ## Regenerate the Open Graph image
 

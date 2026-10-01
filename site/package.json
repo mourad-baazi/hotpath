@@ -1,7 +1,7 @@
 {
   "name": "site",
   "version": "0.1.0",
-  "description": "usehotpath.com: the Hotpath landing page and Cloud waitlist",
+  "description": "hotpath.run: the Hotpath landing page and Cloud waitlist",
   "private": true,
   "type": "module",
   "scripts": {

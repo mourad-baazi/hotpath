@@ -11,7 +11,7 @@ const {
   description = "Hotpath records an AI agent's MCP tool calls, drops its mistakes, and replays the task as a workflow that uses AI only where judgment is needed. Open source.",
 } = Astro.props;
 
-const site = Astro.site ?? new URL("https://usehotpath.com");
+const site = Astro.site ?? new URL("https://hotpath.run");
 const canonical = new URL(Astro.url.pathname, site).href;
 const ogImage = new URL("/og.png", site).href;
 const beacon = import.meta.env.PUBLIC_CF_BEACON_TOKEN;

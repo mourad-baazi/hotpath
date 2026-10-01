@@ -1,6 +1,6 @@
 # AGENTS.md: instructions for coding agents (Antigravity, Claude Code, Kimi, …)
 
-This folder is the **usehotpath.com** landing page for Hotpath, an open-source tool that
+This folder is the **hotpath.run** landing page for Hotpath, an open-source tool that
 records an AI agent's tool calls once and replays the task as a workflow that uses AI
 only at the steps that need judgment. Read `README.md` in this folder first.
 

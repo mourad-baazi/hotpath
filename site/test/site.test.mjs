@@ -20,11 +20,11 @@ test("title, description, canonical and social cards", () => {
   assert.match(html, /<meta name="description" content="[^"]{60,}"/);
   assert.match(
     html,
-    /<link rel="canonical" href="https:\/\/usehotpath\.com\/"/,
+    /<link rel="canonical" href="https:\/\/hotpath\.run\/"/,
   );
   assert.match(
     html,
-    /<meta property="og:image" content="https:\/\/usehotpath\.com\/og\.png"/,
+    /<meta property="og:image" content="https:\/\/hotpath\.run\/og\.png"/,
   );
   assert.match(html, /<meta name="twitter:card" content="summary_large_image"/);
   assert.ok(existsSync(new URL("../public/og.png", import.meta.url)));
