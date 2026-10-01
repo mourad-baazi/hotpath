@@ -97,8 +97,8 @@ export function cheapReasoning(): ReasoningEffort | undefined {
 
 const MAX_RATE_LIMIT_RETRIES = 6;
 const MAX_SERVER_RETRIES = 2;
-/** a longer retry-after means a quota (e.g. daily tokens), not a blip: fail fast */
-const MAX_RETRY_WAIT_MS = 30_000;
+/** per-minute limits ask for up to ~60s: wait. A longer retry-after is a quota (e.g. daily tokens): fail fast. */
+export const MAX_RETRY_WAIT_MS = 65_000;
 
 type HeaderBag = Record<string, string | null | undefined> | undefined;
 

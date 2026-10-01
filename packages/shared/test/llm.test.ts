@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import {
   chat,
   cheapReasoning,
+  MAX_RETRY_WAIT_MS,
   parseReasoningEffort,
   retryDelayMs,
   setClientForTesting,
@@ -128,5 +129,13 @@ describe("rate-limit retries are counted, not hidden", () => {
     await expect(chat({ model: "m", messages })).rejects.toThrow(/429/);
     expect(Date.now() - started).toBeLessThan(1000);
     expect(create).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("retry wait policy", () => {
+  it("is long enough to wait out a per-minute rate-limit window", () => {
+    // Groq answered "try again in 31s" for a per-minute token limit
+    expect(MAX_RETRY_WAIT_MS).toBeGreaterThanOrEqual(61_000);
+    expect(MAX_RETRY_WAIT_MS).toBeLessThan(120_000); // a 2-minute+ ask is a quota
   });
 });

@@ -317,7 +317,24 @@ async function main(): Promise<void> {
     const skipComparison = skipAgent || (skipAgentReruns && run > 0);
     const results: ScenarioResult[] = [];
     for (const task of tasks) {
-      results.push(...(await benchTask(task, skipComparison)));
+      try {
+        results.push(...(await benchTask(task, skipComparison)));
+      } catch (err) {
+        // e.g. the setup agent run died: count the task's scenarios as failed
+        // (so pass rates stay honest) instead of losing the other runs' data.
+        const reason = err instanceof Error ? err.message : String(err);
+        for (const scenario of ["same-data", "new-data", "drift"]) {
+          results.push({
+            scenario: `${task}/${scenario}`,
+            pass: false,
+            agent: null,
+            hotpath: NO_TIMING,
+            match: false,
+            fallback: false,
+            notes: [`${task} did not get past setup: ${reason}`],
+          });
+        }
+      }
     }
     allRuns.push(results);
 
