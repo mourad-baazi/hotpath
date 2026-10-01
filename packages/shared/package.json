@@ -1,6 +1,22 @@
 {
   "name": "hotpath-shared",
   "version": "0.1.0",
+  "description": "Shared schemas, template engine, pricing and LLM client for Hotpath",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "packages/shared"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "exports": {

@@ -1,6 +1,22 @@
 {
   "name": "hotpath-viewer",
   "version": "0.1.0",
+  "description": "Vite + React Flow viewer for compiled Hotpath workflows",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "packages/viewer"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "scripts": {

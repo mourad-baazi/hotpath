@@ -1,6 +1,22 @@
 {
   "name": "hotpath-bench",
   "version": "0.1.0",
+  "description": "End-to-end benchmark for Hotpath (same-data, new-data and drift scenarios against a real LLM)",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "bench"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "scripts": {

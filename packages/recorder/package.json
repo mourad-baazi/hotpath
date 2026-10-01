@@ -1,6 +1,22 @@
 {
   "name": "hotpath-recorder",
   "version": "0.1.0",
+  "description": "MCP stdio proxy that records an agent's tool calls to a JSONL trace",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "packages/recorder"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "exports": {

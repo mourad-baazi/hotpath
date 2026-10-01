@@ -1,6 +1,22 @@
 {
   "name": "hotpath-cli",
   "version": "0.1.0",
+  "description": "The hotpath command line: record, compile, show, run and view",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "scripts": {

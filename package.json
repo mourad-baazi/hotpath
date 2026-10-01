@@ -1,6 +1,21 @@
 {
   "name": "hotpath",
   "version": "0.1.0",
+  "description": "Record your AI agent once. Replay it faster and cheaper, with AI only where judgment is needed.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "engines": {

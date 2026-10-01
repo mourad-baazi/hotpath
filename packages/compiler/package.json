@@ -1,6 +1,22 @@
 {
   "name": "hotpath-compiler",
   "version": "0.1.0",
+  "description": "Deterministic compiler from an agent trace to an editable workflow",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mourad-baazi/hotpath.git",
+    "directory": "packages/compiler"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "mcp",
+    "llm",
+    "workflow",
+    "jit",
+    "openclaw"
+  ],
   "private": true,
   "type": "module",
   "exports": {
