@@ -18,10 +18,7 @@ test("the site has been built", () => {
 test("title, description, canonical and social cards", () => {
   assert.match(html, /<title>Hotpath: [^<]+<\/title>/);
   assert.match(html, /<meta name="description" content="[^"]{60,}"/);
-  assert.match(
-    html,
-    /<link rel="canonical" href="https:\/\/hotpath\.run\/"/,
-  );
+  assert.match(html, /<link rel="canonical" href="https:\/\/hotpath\.run\/"/);
   assert.match(
     html,
     /<meta property="og:image" content="https:\/\/hotpath\.run\/og\.png"/,
