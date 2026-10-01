@@ -1,8 +1,8 @@
 node_modules/
 dist/
 .env
-traces/
-workflows/
-out/
+/traces/
+/workflows/
+/out/
 bench/results.json
 *.log
