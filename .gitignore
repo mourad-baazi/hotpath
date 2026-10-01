@@ -6,3 +6,4 @@ dist/
 /out/
 bench/results.json
 *.log
+/.hotpath/

@@ -25,9 +25,14 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
+    "cross-spawn": "^7.0.6",
     "hotpath-compiler": "workspace:*",
     "hotpath-recorder": "workspace:*",
     "hotpath-runtime": "workspace:*",
-    "hotpath-viewer": "workspace:*"
+    "hotpath-viewer": "workspace:*",
+    "json5": "^2.2.3"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6"
   }
 }

@@ -9,6 +9,11 @@ import {
 import { runRecorder } from "hotpath-recorder";
 import { runTask } from "hotpath-runtime";
 import { startViewer } from "hotpath-viewer";
+import path from "node:path";
+
+import type { ClaudeScope } from "./wrap/agents.js";
+import { repoRoot, selfCommand } from "./wrap/self.js";
+import { unwrap, wrap, type WrapResult } from "./wrap/wrap.js";
 
 function passthroughArgs(): string[] {
   const dash = process.argv.indexOf("--");
@@ -130,5 +135,87 @@ export function createProgram(): Command {
       }
     });
 
+  program
+    .command("wrap")
+    .description("Route an agent's MCP server through the recorder")
+    .argument("<agent>", "openclaw or claude-code")
+    .argument("<server>", "MCP server name in the agent's config")
+    .requiredOption("--task <name>", "task name to record under")
+    .option("--dry-run", "print the change without writing anything")
+    .option("--config <path>", "agent config file (default: the agent's own)")
+    .option(
+      "--scope <scope>",
+      "claude-code only: local, project or user",
+      parseScope,
+    )
+    .action(
+      async (
+        agent: string,
+        server: string,
+        options: {
+          task: string;
+          dryRun?: boolean;
+          config?: string;
+          scope?: ClaudeScope;
+        },
+      ) => {
+        await reportWrap(
+          () =>
+            wrap({ agent, server, ...options, stateDir, self: selfCommand() }),
+          options.dryRun
+            ? "dry run, nothing written"
+            : `wrapped "${server}": ${agent} now records task "${options.task}"\n` +
+                `undo with: hotpath unwrap ${agent} ${server}`,
+        );
+      },
+    );
+
+  program
+    .command("unwrap")
+    .description("Restore an MCP server that `hotpath wrap` changed")
+    .argument("<agent>", "openclaw or claude-code")
+    .argument("<server>", "MCP server name in the agent's config")
+    .option("--dry-run", "print the change without writing anything")
+    .option(
+      "--config <path>",
+      "agent config file (default: the one wrap edited)",
+    )
+    .action(
+      async (
+        agent: string,
+        server: string,
+        options: { dryRun?: boolean; config?: string },
+      ) => {
+        await reportWrap(
+          () => unwrap({ agent, server, ...options, stateDir }),
+          options.dryRun
+            ? "dry run, nothing written"
+            : `restored "${server}" in the ${agent} config`,
+        );
+      },
+    );
+
   return program;
+}
+
+const stateDir = path.join(repoRoot, ".hotpath");
+
+function parseScope(value: string): ClaudeScope {
+  if (value === "local" || value === "project" || value === "user")
+    return value;
+  throw new InvalidArgumentError("expected local, project or user");
+}
+
+async function reportWrap(
+  run: () => Promise<WrapResult>,
+  done: string,
+): Promise<void> {
+  try {
+    const result = await run();
+    console.log(`${result.file}\n${result.diff}\n\n${done}`);
+    if (result.changed) console.log(result.reloadHint);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
 }

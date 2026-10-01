@@ -14,6 +14,10 @@ export const traceMetaSchema = z.object({
   task: z.string(),
   startedAt: z.string(),
   server: z.string(),
+  /** the server command as an argv array (paths with spaces stay intact) */
+  serverArgv: z.array(z.string()).optional(),
+  /** working directory the server was started in */
+  cwd: z.string().optional(),
   inputs: z.record(z.string(), z.unknown()),
   tools: z.array(traceToolInfoSchema),
 });
@@ -122,6 +126,8 @@ export const workflowSchema = z.object({
   task: z.string(),
   compiledFrom: z.string(),
   server: z.string(),
+  serverArgv: z.array(z.string()).optional(),
+  cwd: z.string().optional(),
   inputs: z.record(z.string(), workflowInputSchema),
   steps: z.array(workflowStepSchema),
   /** failed/retried calls from the trace that did not become steps */

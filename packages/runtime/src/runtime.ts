@@ -195,6 +195,17 @@ async function fallback(
   return metrics;
 }
 
+// Start the server where it was recorded (a wrapped agent server may use
+// relative paths); fall back to the repo root when that folder is gone.
+async function serverCwd(recorded: string | undefined): Promise<string> {
+  if (!recorded) return repoRoot;
+  try {
+    return (await stat(recorded)).isDirectory() ? recorded : repoRoot;
+  } catch {
+    return repoRoot;
+  }
+}
+
 async function runConfiguredAgent(request: AgentRequest): Promise<void> {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, "hotpath.config.json"), "utf8"),
@@ -314,11 +325,11 @@ export async function runWorkflow(
   }
 
   const start = Date.now();
-  const serverArgv = splitCommand(workflow.server);
+  const serverArgv = workflow.serverArgv ?? splitCommand(workflow.server);
   const transport = new StdioClientTransport({
     command: serverArgv[0],
     args: serverArgv.slice(1),
-    cwd: repoRoot,
+    cwd: await serverCwd(workflow.cwd),
     env: { ...process.env } as Record<string, string>,
     // no shell: the MCP SDK starts the server with cross-spawn (handles .cmd shims)
   });

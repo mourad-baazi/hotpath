@@ -113,6 +113,8 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
     task: trace.meta.task,
     compiledFrom,
     server: trace.meta.server,
+    ...(trace.meta.serverArgv ? { serverArgv: trace.meta.serverArgv } : {}),
+    ...(trace.meta.cwd ? { cwd: trace.meta.cwd } : {}),
     inputs: Object.fromEntries(
       inputEntries.map(([name, value]) => [
         name,
