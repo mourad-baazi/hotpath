@@ -67,6 +67,12 @@ Pages (free).
    `www.hotpath.run` (Cloudflare can redirect www to the root). HTTPS is automatic.
 4. **Test:** open https://hotpath.run, sign up with your own email, check it in Formspree.
 
+**If Cloudflare created a Worker instead of a Pages project** (its newer default), keep
+the build command `pnpm --filter site build` and the deploy command `npx wrangler deploy`.
+The `wrangler.jsonc` at the repo root tells wrangler to serve `site/dist` as static
+assets; its `name` must match the Worker's name in the dashboard. Add the domain under
+the Worker → Settings → Domains & Routes → Add → Custom domain → `hotpath.run`.
+
 **Vercel instead:** import the repo, root directory `site`, framework Astro, then add
 `hotpath.run`; in Namecheap → Advanced DNS add the A record and CNAME Vercel shows.
 
