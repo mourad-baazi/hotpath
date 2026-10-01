@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+traces/
+workflows/
+out/
+bench/results.json
+*.log

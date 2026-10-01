@@ -1,0 +1,14 @@
+{
+  "events": [
+    {
+      "time": "09:30",
+      "title": "Standup with Platform team",
+      "location": "Room B"
+    },
+    {
+      "time": "14:00",
+      "title": "Dentist appointment",
+      "location": "12 Rue de Rivoli"
+    }
+  ]
+}

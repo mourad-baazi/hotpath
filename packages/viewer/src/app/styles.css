@@ -1,0 +1,161 @@
+:root {
+  --bg: #ffffff;
+  --panel: #f6f7f9;
+  --border: #d5d9e0;
+  --text: #1c2330;
+  --muted: #667085;
+  --tool: #e9ecf1;
+  --ai: #fff1c2;
+  --ai-border: #e0a800;
+  --effect: #c2410c;
+  --selected: #2563eb;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12151c;
+    --panel: #1a1e27;
+    --border: #2d3340;
+    --text: #e6e9ef;
+    --muted: #98a2b3;
+    --tool: #262b36;
+    --ai: #4a3b0a;
+    --ai-border: #e0a800;
+    --effect: #fb923c;
+    --selected: #60a5fa;
+  }
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font:
+    14px/1.4 system-ui,
+    sans-serif;
+}
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.summary {
+  color: var(--muted);
+}
+.legend {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+main {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.canvas {
+  flex: 1;
+}
+aside {
+  width: 380px;
+  overflow: auto;
+  padding: 12px 16px;
+  border-left: 1px solid var(--border);
+  background: var(--panel);
+}
+aside pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 8px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+aside h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+aside h3 {
+  margin: 14px 0 4px;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.hint,
+.message {
+  color: var(--muted);
+  padding: 16px;
+}
+.error {
+  color: var(--effect);
+  white-space: pre-wrap;
+}
+.step {
+  width: 240px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--tool);
+  color: var(--text);
+}
+.step-llm {
+  background: var(--ai);
+  border-color: var(--ai-border);
+  border-width: 2px;
+}
+.step-effect {
+  border-left: 4px solid var(--effect);
+}
+.step-selected {
+  outline: 2px solid var(--selected);
+}
+.step-id {
+  font-size: 11px;
+  color: var(--muted);
+}
+.step-label {
+  font-weight: 600;
+}
+.step-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--tool);
+  border: 1px solid var(--border);
+}
+.tag-ai {
+  background: var(--ai);
+  border-color: var(--ai-border);
+}
+.tag-effect {
+  color: var(--effect);
+  border-color: var(--effect);
+  background: transparent;
+}
+@media (max-width: 720px) {
+  main {
+    flex-direction: column;
+  }
+  aside {
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    max-height: 40%;
+  }
+}

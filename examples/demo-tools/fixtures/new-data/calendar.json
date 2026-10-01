@@ -1,0 +1,6 @@
+{
+  "events": [
+    { "time": "10:00", "title": "Sprint planning", "location": "Room A" },
+    { "time": "19:30", "title": "Dinner with Ana", "location": "Le Comptoir" }
+  ]
+}

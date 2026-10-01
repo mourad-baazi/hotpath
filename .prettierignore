@@ -1,0 +1,11 @@
+node_modules
+dist
+traces
+workflows
+out
+pnpm-lock.yaml
+# pre-existing docs, left as-is
+AGENTS.md
+SPEC.md
+README.md
+PROGRESS.md

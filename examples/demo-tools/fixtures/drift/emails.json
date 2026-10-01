@@ -1,0 +1,22 @@
+{
+  "emails": [
+    {
+      "id": "e1",
+      "from": "alice@corp.com",
+      "title": "Q3 budget review moved to 14:00",
+      "snippet": "Hi, the Q3 budget review has been moved to 14:00 in Room A. Please review the deck beforehand."
+    },
+    {
+      "id": "e2",
+      "from": "bob@corp.com",
+      "title": "Team offsite: draft agenda attached",
+      "snippet": "Here is the draft agenda for the team offsite next month — feedback welcome by Friday."
+    },
+    {
+      "id": "e3",
+      "from": "news@city.io",
+      "title": "Metro line 4 closed this weekend",
+      "snippet": "Metro line 4 is closed between Strasbourg-Saint-Denis and Porte d'Orleans all weekend."
+    }
+  ]
+}

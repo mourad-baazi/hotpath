@@ -1,0 +1,22 @@
+{
+  "emails": [
+    {
+      "id": "e4",
+      "from": "carol@corp.com",
+      "subject": "Launch checklist for v2 is ready",
+      "snippet": "The launch checklist for v2 is ready for review — two items still need an owner."
+    },
+    {
+      "id": "e5",
+      "from": "billing@vendor.io",
+      "subject": "Invoice #2041 attached",
+      "snippet": "Your invoice #2041 for October is attached. Total due: EUR 340.00."
+    },
+    {
+      "id": "e6",
+      "from": "dave@club.org",
+      "subject": "Book club: October pick",
+      "snippet": "This month we are reading 'The Master and Margarita' — discussion on the 20th."
+    }
+  ]
+}
