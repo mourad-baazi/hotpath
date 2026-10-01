@@ -44,6 +44,11 @@ function renderString(text: string, ctx: TemplateContext): unknown {
   });
 }
 
+/** Resolve one reference such as `steps.s1.result.emails.0.subject` (no braces). */
+export function lookupReference(expr: string, ctx: TemplateContext): unknown {
+  return lookup(expr, ctx);
+}
+
 function lookup(expr: string, ctx: TemplateContext): unknown {
   const parts = expr.trim().split(".");
   if (parts[0] === "inputs" && parts.length === 2) return ctx.inputs[parts[1]];

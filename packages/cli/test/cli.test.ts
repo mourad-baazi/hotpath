@@ -10,4 +10,12 @@ describe("hotpath CLI", () => {
       expect(help).toContain(cmd);
     }
   });
+
+  it("run has --dry-run, --no-fallback and --accept-recompile", () => {
+    const run = createProgram().commands.find((c) => c.name() === "run")!;
+    const help = run.helpInformation();
+    for (const flag of ["--dry-run", "--no-fallback", "--accept-recompile"]) {
+      expect(help).toContain(flag);
+    }
+  });
 });

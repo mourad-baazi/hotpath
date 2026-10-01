@@ -6,14 +6,23 @@ import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { compileTask, loadWorkflow, workflowsDir } from "hotpath-compiler";
+import {
+  compileTaskInMemory,
+  loadWorkflow,
+  lostReadOnlySteps,
+  saveWorkflow,
+  workflowsDir,
+} from "hotpath-compiler";
 import {
   CHEAP_MODEL,
   chat,
   cheapReasoning,
   formatMs,
+  lookupReference,
+  mentions,
   renderTemplate,
   usdCost,
+  type GroundingEntry,
   type StepGuard,
   type TemplateContext,
   type Workflow,
@@ -36,6 +45,11 @@ export interface RunOptions {
   dryRun?: boolean;
   /** Stop on drift instead of running the agent (exit non-zero via DriftError). */
   noFallback?: boolean;
+  /**
+   * Replace the workflow after a fallback even if the recompile lost read-only
+   * steps the old one had (default: warn and keep the old workflow).
+   */
+  acceptRecompile?: boolean;
   /** Override how the agent is run (tests); default spawns `agent` from hotpath.config.json. */
   runAgent?: (request: AgentRequest) => Promise<void>;
 }
@@ -57,7 +71,10 @@ export interface RunMetrics {
   /** time split: MCP server start + connect, tool steps, llm steps (all in ms) */
   connectMs: number;
   toolMs: number;
+  /** llm steps' time, excluding rate-limit waiting (reported separately) */
   llmMs: number;
+  /** time spent waiting on 429 retries (included in durationMs; agent's too after a fallback) */
+  rateLimitWaitMs: number;
   /** tool calls actually made, in order (bench compares them with the trace) */
   toolCalls: Array<{ tool: string; args: Record<string, unknown> }>;
   /** set when a guard failed */
@@ -66,6 +83,10 @@ export interface RunMetrics {
   /** set when the agent fallback ran */
   agentDurationMs?: number;
   agentCostUsd?: number;
+  /** after a fallback: was workflows/<task>.json replaced by the recompile? */
+  recompiled?: boolean;
+  /** read-only steps the recompile would have dropped (see --accept-recompile) */
+  lostSteps?: string[];
 }
 
 /** A step's guard failed: the workflow no longer matches reality. */
@@ -127,29 +148,49 @@ async function fallback(
     inputs: options.inputs,
   });
   const agentDurationMs = Date.now() - agentStart;
-  const agentCostUsd = await readAgentCost(agentStart);
+  const agent = await readAgentRun(agentStart);
+  const agentCostUsd = agent.costUsd;
 
-  // Keep the old workflow, then recompile from the trace the agent just wrote.
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backup = path.join(workflowsDir, `${task}.${stamp}.bak.json`);
-  await copyFile(path.join(workflowsDir, `${task}.json`), backup);
-  const recompiled = await compileTask(task);
+  // Recompile from the trace the agent just wrote, but look before replacing:
+  // if the agent skipped reads the old workflow had, the new one would
+  // silently lose those data sources.
+  const { workflow: next } = await compileTaskInMemory(task);
+  const lostSteps = lostReadOnlySteps(workflow, next);
+  const replace = lostSteps.length === 0 || options.acceptRecompile === true;
+  let backup: string | null = null;
+  if (replace) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    backup = path.join(workflowsDir, `${task}.${stamp}.bak.json`);
+    await copyFile(path.join(workflowsDir, `${task}.json`), backup);
+    await saveWorkflow(next);
+  } else {
+    console.log(
+      `⚠ the recompiled workflow lost read-only step(s) the previous one had: ${lostSteps.join(", ")}. ` +
+        `Keeping the old workflow (workflows/${task}.json is unchanged); ` +
+        "pass --accept-recompile to replace it anyway.",
+    );
+  }
 
   const metrics: RunMetrics = {
     ...drift.metrics,
     durationMs: drift.metrics.durationMs + agentDurationMs,
     costUsd: drift.metrics.costUsd + agentCostUsd,
+    rateLimitWaitMs: drift.metrics.rateLimitWaitMs + agent.rateLimitWaitMs,
     fallback: true,
     driftStep: drift.stepId,
     reason: drift.reason,
     agentDurationMs,
     agentCostUsd,
+    recompiled: replace,
+    ...(lostSteps.length > 0 ? { lostSteps } : {}),
   };
   await writeMetrics(metrics);
   console.log(
     `✓ ${task} recovered via agent in ${(metrics.durationMs / 1000).toFixed(1)}s, ` +
-      `$${metrics.costUsd.toFixed(4)}; recompiled ${recompiled.steps.length} steps ` +
-      `(old workflow: ${path.relative(repoRoot, backup).replace(/\\/g, "/")})`,
+      `$${metrics.costUsd.toFixed(4)}; ` +
+      (backup
+        ? `recompiled ${next.steps.length} steps (old workflow: ${path.relative(repoRoot, backup).replace(/\\/g, "/")})`
+        : "old workflow kept"),
   );
   return metrics;
 }
@@ -189,17 +230,25 @@ async function runConfiguredAgent(request: AgentRequest): Promise<void> {
 }
 
 // The demo agent writes out/agent-run.json; other agents may not (then $0).
-async function readAgentCost(since: number): Promise<number> {
+async function readAgentRun(
+  since: number,
+): Promise<{ costUsd: number; rateLimitWaitMs: number }> {
+  const none = { costUsd: 0, rateLimitWaitMs: 0 };
   try {
     const file = path.join(outDir, "agent-run.json");
     const { mtimeMs } = await stat(file);
-    if (mtimeMs < since - 1000) return 0;
+    if (mtimeMs < since - 1000) return none;
     const parsed = JSON.parse(await readFile(file, "utf8")) as {
       costUsd?: number;
+      rateLimitWaitMs?: number;
     };
-    return typeof parsed.costUsd === "number" ? parsed.costUsd : 0;
+    return {
+      costUsd: typeof parsed.costUsd === "number" ? parsed.costUsd : 0,
+      rateLimitWaitMs:
+        typeof parsed.rateLimitWaitMs === "number" ? parsed.rateLimitWaitMs : 0,
+    };
   } catch {
-    return 0;
+    return none;
   }
 }
 
@@ -249,6 +298,7 @@ export async function runWorkflow(
   let sideEffectRan = false;
   let toolMs = 0;
   let llmMs = 0;
+  let rateLimitWaitMs = 0;
   const toolCalls: RunMetrics["toolCalls"] = [];
 
   const buildMetrics = (extra: Partial<RunMetrics> = {}): RunMetrics => ({
@@ -262,6 +312,7 @@ export async function runWorkflow(
     connectMs,
     toolMs,
     llmMs,
+    rateLimitWaitMs,
     toolCalls,
     ...extra,
   });
@@ -269,10 +320,11 @@ export async function runWorkflow(
   try {
     for (const step of workflow.steps) {
       const stepStart = Date.now();
+      let stepWaitMs = 0; // rate-limit waiting inside this step
       const record = (ok: boolean) => {
         const durationMs = Date.now() - stepStart;
         steps.push({ id: step.id, durationMs, ok });
-        if (step.type === "llm") llmMs += durationMs;
+        if (step.type === "llm") llmMs += Math.max(0, durationMs - stepWaitMs);
         else toolMs += durationMs;
       };
       const drift = async (reason: string): Promise<never> => {
@@ -290,17 +342,42 @@ export async function runWorkflow(
           "Use only the data above. The example below comes from an earlier run on different data, so its facts must not be copied. " +
           `Write about ${step.example.length} characters. ` +
           `Match the style and length of this example: ${step.example}`;
-        const result = await chat({
-          model: CHEAP_MODEL,
-          messages: [{ role: "user", content: prompt }],
-          reasoningEffort: cheapReasoning(),
-        });
-        llmCalls += result.llmCalls;
-        promptTokens += result.promptTokens;
-        completionTokens += result.completionTokens;
-        const text = result.text ?? "";
-        const failure = checkLlmGuard(step.guard, text);
+        const ask = async (content: string): Promise<string> => {
+          const result = await chat({
+            model: CHEAP_MODEL,
+            messages: [{ role: "user", content }],
+            reasoningEffort: cheapReasoning(),
+          });
+          llmCalls += result.llmCalls;
+          promptTokens += result.promptTokens;
+          completionTokens += result.completionTokens;
+          stepWaitMs += result.rateLimitWaitMs ?? 0;
+          rateLimitWaitMs += result.rateLimitWaitMs ?? 0;
+          return result.text ?? "";
+        };
+        let text = await ask(prompt);
+        let failure = checkLlmGuard(step.guard, text);
         if (failure) await drift(failure);
+
+        // Grounding guard: the output must mention this run's values (not
+        // just the example's). Ask once more, naming what was left out.
+        let missing = checkGrounding(step.guard.grounding, ctx, text);
+        if (missing.length > 0) {
+          const list = missing.map((m) => `- ${m}`).join("\n");
+          text = await ask(
+            `${prompt}\n\nYour previous answer left out these items from the data, ` +
+              `which must all appear in the text (verbatim):\n${list}\n` +
+              "Write the complete text again, including them.",
+          );
+          failure = checkLlmGuard(step.guard, text);
+          if (failure) await drift(failure);
+          missing = checkGrounding(step.guard.grounding, ctx, text);
+          if (missing.length > 0) {
+            await drift(
+              `llm output does not mention: ${missing.join("; ")} (grounding guard)`,
+            );
+          }
+        }
         ctx.steps[step.id] = { output: text };
         record(true);
         continue;
@@ -340,7 +417,10 @@ export async function runWorkflow(
     metrics.llmCalls === 1 ? "1 llm call" : `${metrics.llmCalls} llm calls`;
   console.log(
     `✓ ${workflow.task} in ${(metrics.durationMs / 1000).toFixed(1)}s, $${metrics.costUsd.toFixed(4)} (${calls})` +
-      ` · startup ${formatMs(metrics.connectMs)} + tools ${formatMs(metrics.toolMs)} + llm ${formatMs(metrics.llmMs)}`,
+      ` · startup ${formatMs(metrics.connectMs)} + tools ${formatMs(metrics.toolMs)} + llm ${formatMs(metrics.llmMs)}` +
+      (metrics.rateLimitWaitMs > 0
+        ? ` (+${formatMs(metrics.rateLimitWaitMs)} rate-limit wait)`
+        : ""),
   );
   return metrics;
 }
@@ -367,6 +447,33 @@ export function checkToolGuard(
   const error = validate.errors?.[0];
   const where = error?.instancePath ? `result${error.instancePath}` : "result";
   return `${where} ${error?.message ?? "does not match the recorded schema"}`;
+}
+
+/**
+ * Values the output must mention but doesn't. Each entry's paths are resolved
+ * against THIS run's results; an entry whose paths no longer resolve is skipped
+ * (nothing to check), and for several paths mentioning any one is enough.
+ */
+export function checkGrounding(
+  grounding: GroundingEntry[] | undefined,
+  ctx: TemplateContext,
+  text: string,
+): string[] {
+  const missing: string[] = [];
+  for (const entry of grounding ?? []) {
+    const current = entry.paths
+      .map((ref) => lookupReference(ref, ctx))
+      .filter(
+        (v): v is string | number =>
+          typeof v === "string" ||
+          (typeof v === "number" && Number.isFinite(v)),
+      );
+    if (current.length === 0) continue;
+    if (current.some((v) => mentions(text, v))) continue;
+    const label = String(current[0]);
+    if (!missing.includes(label)) missing.push(label);
+  }
+  return missing;
 }
 
 export function checkLlmGuard(guard: StepGuard, text: string): string | null {

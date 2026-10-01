@@ -42,8 +42,9 @@ function getClient(): OpenAI {
         "LLM_API_KEY is not set — copy .env.example to .env and fill it in",
       );
     }
-    // more retries than the SDK default (2): free-tier per-minute limits are tight
-    client = new OpenAI({ apiKey, baseURL: BASE_URL, maxRetries: 6 });
+    // maxRetries 0: we retry ourselves (see callWithRetries) so the time spent
+    // waiting on rate limits is measured instead of hidden inside the SDK.
+    client = new OpenAI({ apiKey, baseURL: BASE_URL, maxRetries: 0 });
   }
   return client;
 }
@@ -71,6 +72,8 @@ export interface LlmResult {
   promptTokens: number;
   completionTokens: number;
   llmCalls: number;
+  /** time spent sleeping between retries of rate-limited (429) requests */
+  rateLimitWaitMs?: number;
 }
 
 export type ReasoningEffort = "low" | "medium" | "high";
@@ -90,6 +93,74 @@ export function parseReasoningEffort(
 /** Reasoning effort for the cheap model (workflow llm steps), read from the env on use. */
 export function cheapReasoning(): ReasoningEffort | undefined {
   return parseReasoningEffort(process.env.HOTPATH_CHEAP_REASONING);
+}
+
+const MAX_RATE_LIMIT_RETRIES = 6;
+const MAX_SERVER_RETRIES = 2;
+/** a longer retry-after means a quota (e.g. daily tokens), not a blip: fail fast */
+const MAX_RETRY_WAIT_MS = 30_000;
+
+type HeaderBag = Record<string, string | null | undefined> | undefined;
+
+/** How long to wait before retrying: provider hint first, else backoff. */
+export function retryDelayMs(headers: HeaderBag, attempt: number): number {
+  const ms = Number(headers?.["retry-after-ms"]);
+  if (headers?.["retry-after-ms"] != null && Number.isFinite(ms) && ms >= 0) {
+    return ms;
+  }
+  const after = headers?.["retry-after"];
+  if (after != null) {
+    const seconds = Number(after);
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+    const date = Date.parse(after);
+    if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
+  }
+  return Math.min(8000, 500 * 2 ** attempt);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * create() with our own retries. Only waiting caused by 429s is added to
+ * `waited.ms`; 5xx/connection retries happen too but are real latency.
+ */
+async function callWithRetries<T>(
+  call: () => Promise<T>,
+  waited: { ms: number },
+): Promise<T> {
+  let rateLimited = 0;
+  let serverErrors = 0;
+  for (;;) {
+    try {
+      return await call();
+    } catch (err) {
+      if (err instanceof OpenAI.APIError && err.status === 429) {
+        const delay = retryDelayMs(err.headers as HeaderBag, rateLimited);
+        if (
+          rateLimited >= MAX_RATE_LIMIT_RETRIES ||
+          delay > MAX_RETRY_WAIT_MS
+        ) {
+          throw err;
+        }
+        const started = Date.now();
+        await sleep(delay);
+        waited.ms += Date.now() - started;
+        rateLimited++;
+        continue;
+      }
+      const transient =
+        err instanceof OpenAI.APIConnectionError ||
+        (err instanceof OpenAI.APIError &&
+          err.status !== undefined &&
+          err.status >= 500);
+      if (transient && serverErrors < MAX_SERVER_RETRIES) {
+        await sleep(500 * 2 ** serverErrors);
+        serverErrors++;
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 // The ONLY place in the repo that talks to an LLM API.
@@ -115,20 +186,28 @@ export async function chat(options: {
       options.tools && options.tools.length > 0 ? ("auto" as const) : undefined,
   };
   const completions = getClient().chat.completions;
+  const waited = { ms: 0 };
   let response;
   if (options.reasoningEffort === undefined) {
-    response = await completions.create(request);
+    response = await callWithRetries(() => completions.create(request), waited);
   } else {
     try {
-      response = await completions.create({
-        ...request,
-        reasoning_effort: options.reasoningEffort,
-      });
+      response = await callWithRetries(
+        () =>
+          completions.create({
+            ...request,
+            reasoning_effort: options.reasoningEffort,
+          }),
+        waited,
+      );
     } catch (err) {
       // Not every provider/model knows reasoning_effort: retry without it.
       const status = err instanceof OpenAI.APIError ? err.status : undefined;
       if (status !== 400 && status !== 422) throw err;
-      response = await completions.create(request);
+      response = await callWithRetries(
+        () => completions.create(request),
+        waited,
+      );
     }
   }
 
@@ -147,6 +226,7 @@ export async function chat(options: {
     promptTokens: response.usage?.prompt_tokens ?? 0,
     completionTokens: response.usage?.completion_tokens ?? 0,
     llmCalls: 1,
+    rateLimitWaitMs: waited.ms,
   };
 }
 

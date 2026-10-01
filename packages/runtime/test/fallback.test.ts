@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   afterAll,
   afterEach,
+  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -41,7 +42,16 @@ import {
 } from "../src/index.js";
 
 const chatMock = vi.mocked(chat);
-const MOCK_BRIEF = "MOCKED BRIEF TEXT";
+// The mocked llm must mention the values the workflow is grounded on (the
+// grounding guard checks), so reuse the recorded example text.
+let MOCK_BRIEF = "";
+beforeAll(async () => {
+  const trace = await readTrace(fixtureTrace);
+  const wf = compileTrace(trace, "fixtures/morning-brief.jsonl");
+  const llm = wf.steps.find((st) => st.type === "llm");
+  MOCK_BRIEF = `${llm && llm.type === "llm" ? llm.example : ""}
+[mocked]`;
+});
 const tasks: string[] = [];
 const quote = (s: string) => `"${s}"`;
 
@@ -67,8 +77,9 @@ async function installWorkflow(mutate?: (w: Workflow) => void) {
 
 // Stand-in for the real LLM agent: does the same four calls through the real
 // recorder so a fresh trace lands in traces/<task>/.
-function fakeAgent() {
+function fakeAgent(options: { skipTool?: string } = {}) {
   const calls: AgentRequest[] = [];
+  const texts: string[] = []; // what the fake agent sent
   const run = async (req: AgentRequest) => {
     calls.push(req);
     const date = String(req.inputs.date);
@@ -101,17 +112,21 @@ function fakeAgent() {
       arguments: { date },
     });
     await client.callTool({ name: "get_calendar", arguments: { date } });
-    await client.callTool({
-      name: "get_weather",
-      arguments: { city: "Paris", date },
-    });
+    if (options.skipTool !== "get_weather") {
+      await client.callTool({
+        name: "get_weather",
+        arguments: { city: "Paris", date },
+      });
+    }
+    const briefText = `Brief: ${JSON.stringify(emails)}`;
+    texts.push(briefText);
     await client.callTool({
       name: "send_message",
-      arguments: { to: "me", text: `Brief: ${JSON.stringify(emails)}` },
+      arguments: { to: "me", text: briefText },
     });
     await client.close();
   };
-  return { run, calls };
+  return { run, calls, texts };
 }
 
 let logs: string[] = [];
@@ -173,6 +188,7 @@ describe("guards + fallback + recompile (M7)", () => {
       inputs: { date: "2026-10-01" },
     });
     expect(metrics.fallback).toBe(true);
+    expect(metrics.recompiled).toBe(true);
     expect(metrics.driftStep).toBe("s1");
     expect(metrics.reason).toMatch(/subject/);
     expect(JSON.parse(await readFile(metricsFile, "utf8"))).toEqual(metrics);
@@ -190,7 +206,15 @@ describe("guards + fallback + recompile (M7)", () => {
     expect(required).toContain('"title"');
     expect(required).not.toContain('"subject"');
 
-    // a subsequent run on the drift fixtures now passes, with no fallback
+    // a subsequent run on the drift fixtures now passes, with no fallback; the
+    // llm must mention the new workflow's grounded values, as the agent did
+    chatMock.mockResolvedValue({
+      text: agent.texts[0],
+      toolCalls: [],
+      promptTokens: 50,
+      completionTokens: 10,
+      llmCalls: 1,
+    });
     const second = await runTask(task, {
       inputs: { date: "2026-10-01" },
       runAgent: agent.run,
@@ -199,8 +223,64 @@ describe("guards + fallback + recompile (M7)", () => {
     expect(second.steps.every((s) => s.ok)).toBe(true);
     expect(agent.calls).toHaveLength(1);
     const messages = JSON.parse(await readFile(messagesFile, "utf8"));
-    expect(messages.at(-1).text).toBe(MOCK_BRIEF);
+    expect(messages.at(-1).text).toBe(agent.texts[0]);
   }, 90_000);
+
+  describe("recompile safety check", () => {
+    const workflowFile = (task: string) =>
+      path.join(repoRoot, "workflows", `${task}.json`);
+    const backupsOf = async (task: string) =>
+      (await readdir(path.join(repoRoot, "workflows"))).filter(
+        (f) => f.startsWith(`${task}.`) && f.endsWith(".bak.json"),
+      );
+
+    it("keeps the old workflow when the agent skipped a read-only step", async () => {
+      const task = await installWorkflow();
+      process.env.DEMO_FIXTURES = "drift";
+      const before = await readFile(workflowFile(task), "utf8");
+      const agent = fakeAgent({ skipTool: "get_weather" });
+
+      const metrics = await runTask(task, {
+        inputs: { date: "2026-10-01" },
+        runAgent: agent.run,
+      });
+
+      expect(agent.calls).toHaveLength(1);
+      expect(metrics.fallback).toBe(true); // the agent still did the task
+      expect(metrics.recompiled).toBe(false);
+      expect(metrics.lostSteps).toEqual(["get_weather"]);
+      const output = logs.join("\n");
+      expect(output).toMatch(/lost read-only step.*get_weather/);
+      expect(output).toMatch(/keeping the old workflow/i);
+      expect(output).toContain("--accept-recompile");
+      // workflow untouched, nothing backed up
+      expect(await readFile(workflowFile(task), "utf8")).toBe(before);
+      expect(await backupsOf(task)).toHaveLength(0);
+      expect(JSON.parse(await readFile(metricsFile, "utf8"))).toEqual(metrics);
+    }, 90_000);
+
+    it("--accept-recompile replaces it anyway (and backs the old one up)", async () => {
+      const task = await installWorkflow();
+      process.env.DEMO_FIXTURES = "drift";
+      const agent = fakeAgent({ skipTool: "get_weather" });
+
+      const metrics = await runTask(task, {
+        inputs: { date: "2026-10-01" },
+        runAgent: agent.run,
+        acceptRecompile: true,
+      });
+
+      expect(metrics.recompiled).toBe(true);
+      expect(metrics.lostSteps).toEqual(["get_weather"]); // still reported
+      const replaced = await loadWorkflow(task);
+      expect(
+        replaced.steps.some(
+          (st) => st.type === "tool" && st.tool === "get_weather",
+        ),
+      ).toBe(false);
+      expect(await backupsOf(task)).toHaveLength(1);
+    }, 90_000);
+  });
 
   it("--no-fallback: non-zero (throws DriftError) and the agent is not called", async () => {
     const task = await installWorkflow();

@@ -2,9 +2,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { readTrace, workflowSchema, type Workflow } from "hotpath-shared";
+import {
+  mentions,
+  readTrace,
+  workflowSchema,
+  type Workflow,
+} from "hotpath-shared";
 
-import { compileTrace, formatWorkflow } from "../src/index.js";
+import {
+  compileTrace,
+  formatWorkflow,
+  lostReadOnlySteps,
+} from "../src/index.js";
 
 const fixture = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -111,5 +120,131 @@ describe("compiler (fixture trace)", () => {
     expect(text).toContain("s4 llm (cheap) → s5.text");
     expect(text).toContain("s5 tool send_message(");
     expect(text).toContain("to=me");
+  });
+});
+
+describe("grounding guard (compile time)", () => {
+  async function grounding() {
+    const wf = await compileFixture();
+    const llm = wf.steps.find((s) => s.type === "llm")!;
+    return { llm, entries: llm.guard.grounding ?? [] };
+  }
+  const pathsOf = (
+    entries: Array<{ value: unknown; paths: string[] }>,
+    v: unknown,
+  ) => entries.find((e) => e.value === v)?.paths;
+
+  it("records result values the example output mentions, with where they came from", async () => {
+    const { entries } = await grounding();
+    expect(pathsOf(entries, "Q3 budget review moved to 14:00")).toEqual([
+      "steps.s1.result.emails.0.subject",
+    ]);
+    expect(pathsOf(entries, "Standup with Platform team")).toEqual([
+      "steps.s2.result.events.0.title",
+    ]);
+    expect(pathsOf(entries, "Paris")).toEqual(["steps.s3.result.city"]);
+    expect(pathsOf(entries, 21)).toEqual(["steps.s3.result.highC"]);
+    expect(pathsOf(entries, 11)).toEqual(["steps.s3.result.lowC"]);
+  });
+
+  it("only records values the example really mentions", async () => {
+    const { llm, entries } = await grounding();
+    if (llm.type !== "llm") throw new Error("expected an llm step");
+    expect(entries.length).toBeGreaterThan(5);
+    for (const e of entries) expect(mentions(llm.example, e.value)).toBe(true);
+  });
+
+  it("skips trivial values (short strings, single digits)", async () => {
+    const { entries } = await grounding();
+    for (const e of entries) {
+      if (typeof e.value === "string")
+        expect(e.value.trim().length).toBeGreaterThanOrEqual(4);
+      else
+        expect(Math.abs(e.value) >= 10 || !Number.isInteger(e.value)).toBe(
+          true,
+        );
+    }
+  });
+
+  it("tool steps get no grounding", async () => {
+    const wf = await compileFixture();
+    for (const s of wf.steps) {
+      if (s.type === "tool") expect(s.guard.grounding).toBeUndefined();
+    }
+  });
+});
+
+describe("lostReadOnlySteps (recompile safety)", () => {
+  const wf = (steps: Array<[string, boolean]>): Workflow =>
+    ({
+      version: 1,
+      task: "t",
+      compiledFrom: "x",
+      server: "s",
+      inputs: {},
+      steps: steps.map(([tool, sideEffect], i) => ({
+        id: `s${i + 1}`,
+        type: "tool",
+        tool,
+        args: {},
+        sideEffect,
+        guard: {},
+      })),
+    }) as Workflow;
+
+  it("is empty when nothing read-only was dropped", () => {
+    const old = wf([
+      ["get_a", false],
+      ["get_b", false],
+      ["send", true],
+    ]);
+    expect(
+      lostReadOnlySteps(
+        old,
+        wf([
+          ["get_b", false],
+          ["get_a", false],
+          ["send", true],
+        ]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("lists read-only tools the new workflow no longer calls", () => {
+    const old = wf([
+      ["get_a", false],
+      ["get_b", false],
+      ["send", true],
+    ]);
+    const next = wf([
+      ["get_a", false],
+      ["send", true],
+    ]);
+    expect(lostReadOnlySteps(old, next)).toEqual(["get_b"]);
+  });
+
+  it("counts repeats: 3 get_commits -> 2 loses one", () => {
+    const old = wf([
+      ["get_commits", false],
+      ["get_commits", false],
+      ["get_commits", false],
+    ]);
+    const next = wf([
+      ["get_commits", false],
+      ["get_commits", false],
+    ]);
+    expect(lostReadOnlySteps(old, next)).toEqual(["get_commits (1 of 3)"]);
+  });
+
+  it("ignores side-effect steps and extra steps in the new workflow", () => {
+    const old = wf([
+      ["get_a", false],
+      ["send", true],
+    ]);
+    const next = wf([
+      ["get_a", false],
+      ["get_c", false],
+    ]);
+    expect(lostReadOnlySteps(old, next)).toEqual([]);
   });
 });

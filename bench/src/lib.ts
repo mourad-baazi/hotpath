@@ -1,6 +1,6 @@
 // Pure helpers for `pnpm bench` (SPEC §7); process/file I/O lives in index.ts.
 
-import { formatMs } from "hotpath-shared";
+import { formatMs, mentions } from "hotpath-shared";
 
 export interface ToolCall {
   tool: string;
@@ -14,6 +14,8 @@ export interface Timing {
   connectMs?: number;
   toolMs?: number;
   llmMs?: number;
+  /** time spent waiting on rate-limit retries; included in durationMs */
+  rateLimitWaitMs?: number;
 }
 
 export interface Split {
@@ -30,30 +32,15 @@ export interface ScenarioResult {
   /** the hotpath run (for drift: the fallback run incl. the agent) */
   hotpath: Timing;
   /** drift only: the follow-up run on the recompiled workflow */
-  recovered?: { durationMs: number } & Split;
+  recovered?: { durationMs: number; rateLimitWaitMs?: number } & Split;
   match: boolean;
   fallback: boolean;
   notes?: string[];
 }
 
-/**
- * Models often type typographic variants (U+2011 non-breaking hyphen, narrow
- * no-break space, curly quotes) of text we match; fold them so only a real
- * omission counts as missing.
- */
-function normalize(text: string): string {
-  return text
-    .normalize("NFKC")
-    .replace(/[‐-―−]/g, "-")
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-}
-
+/** mustMention strings the text lacks (typographic variants count as present). */
 export function missingMentions(text: string, mustMention: string[]): string[] {
-  const haystack = normalize(text);
-  return mustMention.filter((m) => !haystack.includes(normalize(m)));
+  return mustMention.filter((m) => !mentions(text, m));
 }
 
 /** `tool.arg` keys whose value comes from an llm step, so they differ every run. */
@@ -103,7 +90,15 @@ export function sequenceMatches(
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
 const dollars = (usd: number) => `$${usd.toFixed(4)}`;
-const pair = (t: Timing) => `${seconds(t.durationMs)} / ${dollars(t.costUsd)}`;
+/** run time with the rate-limit waiting taken out (reported beside it instead) */
+const netMs = (t: { durationMs: number; rateLimitWaitMs?: number }) =>
+  Math.max(0, t.durationMs - (t.rateLimitWaitMs ?? 0));
+
+const pair = (t: Timing) =>
+  `${seconds(netMs(t))} / ${dollars(t.costUsd)}` +
+  ((t.rateLimitWaitMs ?? 0) > 0
+    ? ` (+${seconds(t.rateLimitWaitMs ?? 0)} rate-limit wait)`
+    : "");
 
 /** "0.3s + 45ms + 1.1s": server startup + deterministic tool steps + llm steps. */
 function splitCell(s: Split): string {
@@ -130,11 +125,11 @@ export function formatTable(rows: ScenarioResult[]): string {
   ];
   const body = rows.map((r) => {
     const hotpath = r.recovered
-      ? `${pair(r.hotpath)} → ${seconds(r.recovered.durationMs)}`
+      ? `${pair(r.hotpath)} → ${seconds(netMs(r.recovered))}`
       : pair(r.hotpath);
     const comparable = r.agent && !r.recovered;
     const speedup = comparable
-      ? `${Math.round(r.agent!.durationMs / Math.max(r.hotpath.durationMs, 1))}x`
+      ? `${Math.round(netMs(r.agent!) / Math.max(netMs(r.hotpath), 1))}x`
       : "-";
     const cheaper =
       comparable && r.hotpath.costUsd > 0
@@ -151,6 +146,51 @@ export function formatTable(rows: ScenarioResult[]): string {
       r.fallback ? "yes → recompiled" : "no",
     ];
   });
+  const all = [header, ...body];
+  const widths = header.map((_, i) =>
+    Math.max(...all.map((row) => row[i].length)),
+  );
+  return all
+    .map((row) =>
+      row
+        .map((cell, i) => cell.padEnd(widths[i]))
+        .join("  ")
+        .trimEnd(),
+    )
+    .join("\n");
+}
+
+export interface PassRate {
+  scenario: string;
+  passes: number;
+  runs: number;
+}
+
+/** Per-scenario pass counts over several bench runs, in first-run order. */
+export function passRates(runs: ScenarioResult[][]): PassRate[] {
+  const rates = new Map<string, PassRate>();
+  for (const run of runs) {
+    for (const r of run) {
+      const rate = rates.get(r.scenario) ?? {
+        scenario: r.scenario,
+        passes: 0,
+        runs: 0,
+      };
+      rate.runs++;
+      if (r.pass && r.match) rate.passes++;
+      rates.set(r.scenario, rate);
+    }
+  }
+  return [...rates.values()];
+}
+
+export function formatPassRates(rates: PassRate[]): string {
+  const header = ["scenario", "passed", "pass rate"];
+  const body = rates.map((r) => [
+    r.scenario,
+    `${r.passes}/${r.runs}`,
+    `${Math.round((100 * r.passes) / Math.max(r.runs, 1))}%`,
+  ]);
   const all = [header, ...body];
   const widths = header.map((_, i) =>
     Math.max(...all.map((row) => row[i].length)),

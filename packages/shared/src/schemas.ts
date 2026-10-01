@@ -46,12 +46,26 @@ export const traceLineSchema = z.discriminatedUnion("type", [
 export type TraceLine = z.infer<typeof traceLineSchema>;
 
 // Workflow (SPEC §5.2) — compiled from a trace by packages/compiler.
+/**
+ * llm steps: a value from an earlier step's result that the recorded example
+ * output mentions. `paths` are the template references (e.g.
+ * "steps.s1.result.emails.0.subject") that held that value in the recording;
+ * at run time the output must mention what those paths hold *now*.
+ */
+export const groundingEntrySchema = z.object({
+  value: z.union([z.string(), z.number()]),
+  paths: z.array(z.string()).min(1),
+});
+export type GroundingEntry = z.infer<typeof groundingEntrySchema>;
+
 export const stepGuardSchema = z.object({
   /** tool steps: JSON schema inferred from the recorded result */
   schema: z.record(z.string(), z.unknown()).optional(),
   /** llm steps */
   nonEmpty: z.boolean().optional(),
   maxChars: z.number().int().positive().optional(),
+  /** llm steps: values from earlier results the output must mention */
+  grounding: z.array(groundingEntrySchema).optional(),
 });
 export type StepGuard = z.infer<typeof stepGuardSchema>;
 

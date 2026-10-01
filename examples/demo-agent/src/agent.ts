@@ -24,6 +24,8 @@ export interface AgentMetrics {
   promptTokens: number;
   completionTokens: number;
   costUsd: number;
+  /** time spent waiting on rate-limit retries (included in durationMs) */
+  rateLimitWaitMs: number;
 }
 
 const PROMPTS: Record<
@@ -123,12 +125,14 @@ export async function runAgent(options: AgentOptions): Promise<AgentMetrics> {
     let llmCalls = 0;
     let promptTokens = 0;
     let completionTokens = 0;
+    let rateLimitWaitMs = 0;
 
     for (let turn = 0; turn < maxTurns(options.task); turn++) {
       const result = await chat({ model: AGENT_MODEL, messages, tools });
       llmCalls += result.llmCalls;
       promptTokens += result.promptTokens;
       completionTokens += result.completionTokens;
+      rateLimitWaitMs += result.rateLimitWaitMs ?? 0;
 
       if (process.env.HOTPATH_DEBUG) {
         console.error(
@@ -164,6 +168,7 @@ export async function runAgent(options: AgentOptions): Promise<AgentMetrics> {
       promptTokens,
       completionTokens,
       costUsd: usdCost(AGENT_MODEL, promptTokens, completionTokens),
+      rateLimitWaitMs,
     };
   } finally {
     await client.close();
@@ -176,7 +181,10 @@ export async function runAgent(options: AgentOptions): Promise<AgentMetrics> {
     JSON.stringify(metrics, null, 2),
   );
   console.log(
-    `agent run: ${metrics.llmCalls} llm calls, ${metrics.durationMs}ms, $${metrics.costUsd.toFixed(4)}`,
+    `agent run: ${metrics.llmCalls} llm calls, ${metrics.durationMs}ms, $${metrics.costUsd.toFixed(4)}` +
+      (metrics.rateLimitWaitMs > 0
+        ? ` (incl. ${metrics.rateLimitWaitMs}ms rate-limit wait)`
+        : ""),
   );
   return metrics;
 }

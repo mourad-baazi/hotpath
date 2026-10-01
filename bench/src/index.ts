@@ -8,9 +8,11 @@ import { latestTraceFile, loadWorkflow } from "hotpath-compiler";
 import { readTrace } from "hotpath-shared";
 
 import {
+  formatPassRates,
   formatTable,
   llmArgKeys,
   missingMentions,
+  passRates,
   sequenceMatches,
   type ScenarioResult,
   type Timing,
@@ -28,6 +30,16 @@ const repoRoot = path.resolve(
 const outDir = path.join(repoRoot, "out");
 const argv = process.argv.slice(2);
 const skipAgent = argv.includes("--skip-agent");
+// --runs N: repeat the whole benchmark N times and report per-scenario pass
+// rates (the LLM parts are not deterministic). --skip-agent-reruns skips the
+// comparison agent run in runs 2..N (saves tokens when rate limits bite).
+const skipAgentReruns = argv.includes("--skip-agent-reruns");
+const runsFlag = argv.includes("--runs")
+  ? Number(argv[argv.indexOf("--runs") + 1])
+  : 1;
+if (!Number.isInteger(runsFlag) || runsFlag < 1) {
+  throw new Error("--runs needs a positive integer, e.g. --runs 3");
+}
 const onlyTask = argv.includes("--task")
   ? argv[argv.indexOf("--task") + 1]
   : undefined;
@@ -45,6 +57,8 @@ interface Expected {
 interface RunFile extends Timing {
   fallback: boolean;
   driftStep?: string;
+  recompiled?: boolean;
+  lostSteps?: string[];
   toolCalls: ToolCall[];
 }
 
@@ -110,7 +124,10 @@ const clearMessages = () =>
   rm(path.join(outDir, "messages.json"), { force: true });
 const readRun = () => readJson<RunFile>("hotpath-run.json").catch(() => null);
 
-async function benchTask(task: string): Promise<ScenarioResult[]> {
+async function benchTask(
+  task: string,
+  skipComparisonAgent: boolean,
+): Promise<ScenarioResult[]> {
   const results: ScenarioResult[] = [];
   const label = (scenario: string) => `${task}/${scenario}`;
   const dates = {
@@ -186,7 +203,7 @@ async function benchTask(task: string): Promise<ScenarioResult[]> {
   {
     const notes: string[] = [];
     let agent: Timing | null = null;
-    if (!skipAgent) {
+    if (!skipComparisonAgent) {
       await clearMessages();
       const a = await runAgent(task, dates.newData, "new-data");
       if (a.code === 0) agent = await readJson<Timing>("agent-run.json");
@@ -230,6 +247,11 @@ async function benchTask(task: string): Promise<ScenarioResult[]> {
     const drifted = await readRun();
     if (first.code !== 0)
       notes.push(`drift run failed:\n${first.output.trim()}`);
+    if (drifted?.recompiled === false) {
+      notes.push(
+        `recompile rejected: the agent skipped read-only step(s) ${drifted.lostSteps?.join(", ")}`,
+      );
+    }
     if (!drifted?.fallback || drifted.driftStep !== "s1") {
       notes.push(
         `expected fallback after drift at s1, got fallback=${drifted?.fallback} driftStep=${drifted?.driftStep}`,
@@ -258,6 +280,7 @@ async function benchTask(task: string): Promise<ScenarioResult[]> {
         connectMs: again?.connectMs,
         toolMs: again?.toolMs,
         llmMs: again?.llmMs,
+        rateLimitWaitMs: again?.rateLimitWaitMs,
       },
       match: missing.length === 0,
       fallback: drifted?.fallback ?? false,
@@ -286,21 +309,46 @@ async function main(): Promise<void> {
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
-  const results: ScenarioResult[] = [];
-  for (const task of tasks) results.push(...(await benchTask(task)));
+  const allRuns: ScenarioResult[][] = [];
+  for (let run = 0; run < runsFlag; run++) {
+    if (runsFlag > 1) {
+      console.log(`\n=== run ${run + 1} of ${runsFlag} ===`);
+    }
+    const skipComparison = skipAgent || (skipAgentReruns && run > 0);
+    const results: ScenarioResult[] = [];
+    for (const task of tasks) {
+      results.push(...(await benchTask(task, skipComparison)));
+    }
+    allRuns.push(results);
 
-  console.log(`\n${formatTable(results)}`);
-  for (const r of results) {
-    for (const note of r.notes ?? []) console.log(`  ${r.scenario}: ${note}`);
+    console.log(`\n${formatTable(results)}`);
+    for (const r of results) {
+      for (const note of r.notes ?? []) console.log(`  ${r.scenario}: ${note}`);
+    }
+  }
+
+  const rates = passRates(allRuns);
+  if (runsFlag > 1) {
+    console.log(
+      `\npass rates over ${runsFlag} runs:\n${formatPassRates(rates)}`,
+    );
   }
   await writeFile(
     path.join(repoRoot, "bench", "results.json"),
-    JSON.stringify({ at: new Date().toISOString(), results }, null, 2),
+    JSON.stringify(
+      {
+        at: new Date().toISOString(),
+        runs: allRuns.map((results) => ({ results })),
+        passRates: rates,
+      },
+      null,
+      2,
+    ),
   );
-  const failed = results.filter((r) => !r.pass || !r.match);
+  const failed = allRuns.flat().filter((r) => !r.pass || !r.match);
   console.log(
     failed.length
-      ? `\n❌ ${failed.length} scenario(s) failed`
+      ? `\n❌ ${failed.length} scenario run(s) failed`
       : "\n✅ all scenarios passed",
   );
   process.exit(failed.length ? 1 : 0);

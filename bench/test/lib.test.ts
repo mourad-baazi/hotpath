@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatPassRates,
   formatTable,
   llmArgKeys,
   missingMentions,
+  passRates,
   sequenceMatches,
   type ScenarioResult,
 } from "../src/lib.js";
@@ -155,5 +157,99 @@ describe("formatTable", () => {
   it("shows failures", () => {
     const table = formatTable([{ ...rows[0], pass: false, match: false }]);
     expect(table).toContain("❌");
+  });
+});
+
+describe("formatTable rate-limit waits", () => {
+  const row = (
+    agentWait: number | undefined,
+    hotpathWait?: number,
+  ): ScenarioResult => ({
+    scenario: "t/same-data",
+    pass: true,
+    agent: { durationMs: 87600, costUsd: 0.0752, rateLimitWaitMs: agentWait },
+    hotpath: {
+      durationMs: 1900,
+      costUsd: 0.0044,
+      rateLimitWaitMs: hotpathWait,
+    },
+    match: true,
+    fallback: false,
+  });
+
+  it("shows agent time without the wait, and the wait beside it", () => {
+    const table = formatTable([row(12400)]);
+    expect(table).toContain("75.2s / $0.0752 (+12.4s rate-limit wait)");
+  });
+
+  it("computes the speedup from the time excluding waits", () => {
+    // 75.2s / 1.9s = 39.6 -> 40x (87.6s / 1.9s would be 46x)
+    expect(formatTable([row(12400)])).toMatch(/\b40x\b/);
+    expect(formatTable([row(undefined)])).toMatch(/\b46x\b/);
+  });
+
+  it("subtracts hotpath waits too", () => {
+    const table = formatTable([row(0, 900)]);
+    expect(table).toContain("1.0s / $0.0044 (+0.9s rate-limit wait)");
+  });
+
+  it("shows no wait note when there was none", () => {
+    const table = formatTable([row(0)]);
+    expect(table).not.toContain("rate-limit");
+  });
+
+  it("drift row: the fallback run's time excludes the agent's waits", () => {
+    const table = formatTable([
+      {
+        scenario: "t/drift",
+        pass: true,
+        agent: null,
+        hotpath: { durationMs: 40000, costUsd: 0.02, rateLimitWaitMs: 10000 },
+        recovered: { durationMs: 800 },
+        match: true,
+        fallback: true,
+      },
+    ]);
+    expect(table).toContain("30.0s / $0.0200 (+10.0s rate-limit wait) → 0.8s");
+  });
+});
+
+describe("passRates", () => {
+  const mk = (scenario: string, ok: boolean): ScenarioResult => ({
+    scenario,
+    pass: ok,
+    agent: null,
+    hotpath: { durationMs: 1, costUsd: 0 },
+    match: ok,
+    fallback: false,
+  });
+
+  it("counts passes per scenario across runs, in first-run order", () => {
+    const runs = [
+      [mk("a/same", true), mk("a/new", true)],
+      [mk("a/same", true), mk("a/new", false)],
+      [mk("a/same", true), mk("a/new", true)],
+    ];
+    expect(passRates(runs)).toEqual([
+      { scenario: "a/same", passes: 3, runs: 3 },
+      { scenario: "a/new", passes: 2, runs: 3 },
+    ]);
+  });
+
+  it("a scenario that is both pass:false or match:false counts as failed", () => {
+    const failedMatch = { ...mk("x", true), match: false };
+    expect(passRates([[failedMatch]])).toEqual([
+      { scenario: "x", passes: 0, runs: 1 },
+    ]);
+  });
+
+  it("formats a table with percentages", () => {
+    const text = formatPassRates([
+      { scenario: "a/same", passes: 3, runs: 3 },
+      { scenario: "a/new", passes: 2, runs: 3 },
+    ]);
+    expect(text).toContain("scenario");
+    expect(text).toMatch(/a\/same\s+3\/3\s+100%/);
+    expect(text).toMatch(/a\/new\s+2\/3\s+67%/);
   });
 });

@@ -64,6 +64,7 @@ function scriptToolCalls() {
       promptTokens: 100,
       completionTokens: 20,
       llmCalls: 1,
+      rateLimitWaitMs: 30, // each call pretends to have waited out a 429
     };
   });
 }
@@ -91,6 +92,8 @@ describe("demo-agent (mocked llm)", () => {
     expect(metrics.promptTokens).toBe(500);
     expect(metrics.completionTokens).toBe(100);
     expect(metrics.durationMs).toBeGreaterThan(0);
+    // time spent waiting on rate limits is reported separately (5 calls x 30ms)
+    expect(metrics.rateLimitWaitMs).toBe(150);
     const pin = Number(process.env.PRICE_AGENT_IN ?? 3);
     const pout = Number(process.env.PRICE_AGENT_OUT ?? 15);
     expect(metrics.costUsd).toBeCloseTo((500 * pin + 100 * pout) / 1e6, 9);

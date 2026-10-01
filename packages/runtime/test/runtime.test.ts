@@ -1,7 +1,15 @@
 import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -27,7 +35,15 @@ import { compileTrace } from "hotpath-compiler";
 import { runWorkflow, type RunMetrics } from "../src/index.js";
 
 const chatMock = vi.mocked(chat);
-const MOCK_BRIEF = "MOCKED BRIEF TEXT";
+// The mocked llm must "mention" every value the workflow is grounded on, or
+// the grounding guard (rightly) rejects it: reuse the recorded example text.
+let MOCK_BRIEF = "";
+beforeAll(async () => {
+  const { workflow } = await fixtureWorkflow("grounding-seed");
+  const llm = workflow.steps.find((st) => st.type === "llm");
+  MOCK_BRIEF = `${llm && llm.type === "llm" ? llm.example : ""}
+[mocked]`;
+});
 
 const recordTasks: string[] = [];
 function taskName(): string {
@@ -85,12 +101,17 @@ beforeEach(async () => {
     logs.push(args.join(" "));
   });
   chatMock.mockReset();
-  chatMock.mockResolvedValue({
-    text: MOCK_BRIEF,
-    toolCalls: [],
-    promptTokens: 50,
-    completionTokens: 10,
-    llmCalls: 1,
+  // The call really takes 60ms, 50ms of which it reports as rate-limit waiting.
+  chatMock.mockImplementation(async () => {
+    await new Promise((r) => setTimeout(r, 60));
+    return {
+      text: MOCK_BRIEF,
+      toolCalls: [],
+      promptTokens: 50,
+      completionTokens: 10,
+      llmCalls: 1,
+      rateLimitWaitMs: 50,
+    };
   });
 });
 
@@ -113,7 +134,7 @@ describe("runtime (mocked llm, real MCP via recorder)", () => {
     const dur = String.raw`(?:\d+ms|\d+\.\ds)`;
     expect(summary).toMatch(
       new RegExp(
-        String.raw`^✓ morning-brief in \d+\.\ds, \$0\.\d{4} \(1 llm call\) · startup ${dur} \+ tools ${dur} \+ llm ${dur}$`,
+        String.raw`^✓ morning-brief in \d+\.\ds, \$0\.\d{4} \(1 llm call\) · startup ${dur} \+ tools ${dur} \+ llm ${dur} \(\+${dur} rate-limit wait\)$`,
       ),
     );
     const pin = Number(process.env.PRICE_CHEAP_IN ?? 0.95);
@@ -135,7 +156,10 @@ describe("runtime (mocked llm, real MCP via recorder)", () => {
       metrics.steps
         .filter((s) => ids.includes(s.id))
         .reduce((total, s) => total + s.durationMs, 0);
-    expect(metrics.llmMs).toBe(ms(["s4"]));
+    // llm time excludes the rate-limit wait, which is reported on its own
+    expect(metrics.rateLimitWaitMs).toBe(50);
+    expect(metrics.llmMs).toBe(ms(["s4"]) - 50);
+    expect(metrics.llmMs).toBeGreaterThanOrEqual(0);
     expect(metrics.toolMs).toBe(ms(["s1", "s2", "s3", "s5"]));
     expect(metrics.connectMs).toBeGreaterThan(0);
     expect(

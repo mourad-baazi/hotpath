@@ -1,4 +1,6 @@
 import {
+  mentions,
+  type GroundingEntry,
   type TraceFile,
   type Workflow,
   type WorkflowStep,
@@ -66,6 +68,8 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
           guard: {
             nonEmpty: true,
             maxChars: Math.max(3 * value.length, 500),
+            // rule 8: values from earlier results that the example mentions
+            grounding: collectGrounding(value, readOnlyResults),
           },
         });
         args[key] = `{{steps.${llmId}.output}}`;
@@ -111,6 +115,44 @@ export function compileTrace(trace: TraceFile, compiledFrom: string): Workflow {
     ),
     steps,
   };
+}
+
+// rule 8 (grounding): which values from earlier read-only results does the
+// recorded example output mention? At run time the output must mention what
+// the same paths hold *now*. Trivial values (short strings, single digits)
+// would match by accident, so they are skipped.
+const GROUNDING_MIN_STRING = 4;
+
+function isGroundable(value: unknown): value is string | number {
+  if (typeof value === "string") {
+    return value.trim().length >= GROUNDING_MIN_STRING;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return !Number.isInteger(value) || Math.abs(value) >= 10;
+  }
+  return false;
+}
+
+export function collectGrounding(
+  example: string,
+  results: Array<{ id: string; result: unknown }>,
+): GroundingEntry[] {
+  const byValue = new Map<string, GroundingEntry>();
+  const visit = (id: string, node: unknown, segments: string[]) => {
+    if (Array.isArray(node)) {
+      node.forEach((v, i) => visit(id, v, [...segments, String(i)]));
+    } else if (node !== null && typeof node === "object") {
+      for (const [k, v] of Object.entries(node)) visit(id, v, [...segments, k]);
+    } else if (isGroundable(node) && mentions(example, node)) {
+      const ref = ["steps", id, "result", ...segments].join(".");
+      const key = `${typeof node}:${node}`;
+      const entry = byValue.get(key);
+      if (entry) entry.paths.push(ref);
+      else byValue.set(key, { value: node, paths: [ref] });
+    }
+  };
+  for (const { id, result } of results) visit(id, result, []);
+  return [...byValue.values()];
 }
 
 function isLlmWrittenText(value: string): boolean {

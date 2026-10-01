@@ -80,6 +80,10 @@ export function createProgram(): Command {
       "--no-fallback",
       "on drift, exit non-zero instead of falling back to the agent",
     )
+    .option(
+      "--accept-recompile",
+      "after a fallback, replace the workflow even if the recompile lost read-only steps",
+    )
     .action(
       async (
         task: string,
@@ -87,6 +91,7 @@ export function createProgram(): Command {
           input: Record<string, string>;
           dryRun?: boolean;
           fallback: boolean;
+          acceptRecompile?: boolean;
         },
       ) => {
         try {
@@ -94,6 +99,7 @@ export function createProgram(): Command {
             inputs: options.input,
             dryRun: options.dryRun,
             noFallback: !options.fallback,
+            acceptRecompile: options.acceptRecompile,
           });
         } catch (err) {
           console.error(err instanceof Error ? err.message : String(err));
