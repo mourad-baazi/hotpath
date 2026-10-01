@@ -1,6 +1,8 @@
 # Hotpath
 
 **Record your AI agent once. Replay it faster and cheaper, with AI only where judgment is needed.**
+![demo](docs/demo.gif)
+
 
 ## Why
 
