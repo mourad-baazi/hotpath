@@ -1,41 +1,45 @@
 ---
-// How it works, proof, works with, features and FAQ.
+// How it works, compile spotlight, proof, works with, features and FAQ.
 import Icon from "./Icon.astro";
-import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STATS, STEPS } from "../content";
+import TraceCollapse from "./TraceCollapse.astro";
+import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STEPS } from "../content";
+
+const maxS = Math.max(...BENCH.map((b) => b.agentS));
+const frac = (s: number) => (s / maxS).toFixed(3);
+const marquee = ["Claude Code", "OpenClaw", "any stdio MCP server", "your own agent"];
 ---
 
-<section id="how" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+<!-- 01 · HOW IT WORKS -->
+<section id="how" class="scroll-mt-16 py-24 sm:py-32">
   <div class="wrap">
-    <p class="eyebrow">How it works</p>
-    <h2 class="h2 mt-3">Like a JIT compiler, for agent tasks.</h2>
-    <p class="lead mt-4">
-      A JIT compiler finds the code that runs most often, the hot path, and compiles it. Hotpath does
-      that for the tasks your agent repeats every day.
-    </p>
-    <ol class="mt-12 grid gap-4 md:grid-cols-3">
+    <div class="reveal flex flex-wrap items-end justify-between gap-6">
+      <div>
+        <p class="eyebrow">01 · How it works</p>
+        <h2 class="h2 mt-5 max-w-[14ch]">Like a JIT compiler, <em class="italic">for agent tasks.</em></h2>
+      </div>
+      <p class="lead max-w-[42ch]">
+        A JIT compiler finds the code that runs most often, the hot path, and compiles it. Hotpath does that for the
+        tasks your agent repeats every day.
+      </p>
+    </div>
+
+    <ol class="steps mt-16 grid border-t border-line md:grid-cols-3">
       {
         STEPS.map((s, i) => (
-          <li class="card relative flex min-w-0 flex-col p-6">
-            <div class="flex items-center gap-3">
-              <span class="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent">
-                <Icon name={s.icon} size={18} />
-              </span>
-              <span class="font-mono text-xs text-muted">{s.n}</span>
-              <h3 class="text-lg font-semibold">{s.title}</h3>
+          <li class="reveal relative min-w-0 border-line py-10 md:px-8 md:first:pl-0 md:last:pr-0 md:[&+&]:border-l max-md:[&+&]:border-t" style={`--delay:${i * 120}ms`}>
+            <span class="step-bar heat-line" aria-hidden="true" />
+            <div class="flex items-baseline gap-4">
+              <span class="display heat-text text-7xl">{s.n}</span>
+              <h3 class="display text-4xl">{s.title}</h3>
             </div>
-            <p class="mt-4 flex-1 text-[15px] text-muted">{s.text}</p>
-            <div class="mt-6 overflow-hidden rounded-lg border border-line bg-surface-2 font-mono text-[12px] leading-5">
-              <div class="truncate px-3 pt-2.5 text-fg">
+            <p class="mt-5 text-[15px] text-muted">{s.text}</p>
+            <div class="mt-7 overflow-hidden rounded-[10px] border border-line bg-surface font-mono text-[11.5px] leading-6">
+              <div class="truncate px-4 pt-3 text-fg">
                 <span class="text-accent select-none">$ </span>
                 {s.cmd}
               </div>
-              <div class:list={["truncate px-3 pt-1 pb-2.5", i === 2 ? "text-ok" : "text-muted"]}>{s.out}</div>
+              <div class:list={["truncate px-4 pb-3", i === 2 ? "text-ok" : "text-muted"]}>{s.out}</div>
             </div>
-            {i < 2 && (
-              <span class="absolute top-1/2 -right-3 z-10 hidden -translate-y-1/2 rounded-full border border-line bg-bg p-1 text-muted md:block" aria-hidden="true">
-                <Icon name="ChevronRight" size={14} />
-              </span>
-            )}
           </li>
         ))
       }
@@ -43,65 +47,92 @@ import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STATS, STEPS } from "../content";
   </div>
 </section>
 
-<section id="proof" class="scroll-mt-16 border-t border-line bg-surface/40 py-20 sm:py-28">
+<!-- 02 · COMPILE SPOTLIGHT -->
+<section class="relative overflow-hidden border-y border-line bg-surface/50 py-24 sm:py-32">
+  <div class="wrap grid items-center gap-14 lg:grid-cols-[1fr_1.05fr]">
+    <div class="reveal min-w-0">
+      <p class="eyebrow">02 · What compile keeps</p>
+      <h2 class="h2 mt-5">It keeps what worked. <em class="italic text-muted">It drops the rest.</em></h2>
+      <p class="lead mt-6">
+        Agents fumble: a wrong date, a missing argument, a retry. Hotpath reads the whole trace, throws away every failed
+        call, turns your inputs into variables and the text the agent wrote into a single AI step.
+      </p>
+      <ul class="mt-8 flex flex-wrap gap-2 font-mono text-[11px]">
+        <li class="pill bg-surface-2 text-fg">tool step = plain code</li>
+        <li class="pill border-ai bg-ai-soft text-ai">AI step = cheap model</li>
+        <li class="pill text-warn">⚡ side effect</li>
+        <li class="pill border-danger/40 bg-danger-soft text-danger">✗ dropped</li>
+      </ul>
+    </div>
+    <div class="reveal min-w-0" style="--delay:120ms">
+      <TraceCollapse />
+      <p class="mt-3 text-center font-mono text-[10.5px] text-muted">
+        Illustration of a real recording: Claude Code did the task once with 4 failed calls.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 03 · PROOF -->
+<section id="proof" class="scroll-mt-16 py-24 sm:py-32">
   <div class="wrap">
-    <p class="eyebrow">Proof</p>
-    <h2 class="h2 mt-3">Recorded Claude Code once. Replayed it on new data.</h2>
-    <p class="lead mt-4">
-      A real run, not a mockup: Claude Code did a morning brief through Hotpath, made 4 mistakes along the way,
-      and Hotpath kept the 5 steps that mattered.
-    </p>
+    <div class="reveal grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-end">
+      <div>
+        <p class="eyebrow">03 · Proof</p>
+        <h2 class="h2 mt-5">Recorded Claude Code <em class="italic">once.</em> Replayed it on new data.</h2>
+      </div>
+      <p class="lead">
+        A real run, not a mockup: Claude Code did a morning brief through Hotpath, made 4 mistakes on the way, and
+        Hotpath kept the 5 steps that mattered. Then the benchmark, agent vs. workflow:
+      </p>
+    </div>
 
-    <dl class="mt-12 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line lg:grid-cols-4">
-      {
-        STATS.map((s) => (
-          <div class="bg-surface p-5 sm:p-6">
-            <dt class="text-sm text-muted">{s.label}</dt>
-            <dd class="num mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">{s.value}</dd>
-            <dd class="mt-1 text-xs text-muted">{s.note}</dd>
-          </div>
-        ))
-      }
-    </dl>
-
-    <div class="mt-10 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
-      <div class="card overflow-hidden">
-        <div class="flex items-center justify-between border-b border-line px-5 py-3">
-          <h3 class="font-medium">Benchmark: agent vs. Hotpath</h3>
-          <span class="pill text-muted">single run · Groq</span>
+    <div class="mt-16 grid gap-10 lg:grid-cols-[1.25fr_1fr]">
+      <div class="reveal min-w-0">
+        <div class="flex items-center justify-between font-mono text-[10.5px] tracking-[0.14em] text-muted uppercase">
+          <span>Wall time, seconds</span>
+          <span class="flex items-center gap-4">
+            <span class="flex items-center gap-2"><span class="legend-cold" aria-hidden="true"></span>agent</span>
+            <span class="flex items-center gap-2"><span class="legend-hot heat-line" aria-hidden="true"></span>hotpath</span>
+          </span>
         </div>
-        <div class="overflow-x-auto">
-          <table class="num w-full min-w-[560px] text-left text-sm whitespace-nowrap">
-            <thead class="text-xs text-muted">
-              <tr class="border-b border-line">
-                <th scope="col" class="px-5 py-2.5 font-medium">Scenario</th>
-                <th scope="col" class="px-3 py-2.5 font-medium">Agent</th>
-                <th scope="col" class="px-3 py-2.5 font-medium">Hotpath</th>
-                <th scope="col" class="px-3 py-2.5 font-medium">Faster</th>
-                <th scope="col" class="px-5 py-2.5 font-medium">Cheaper</th>
-              </tr>
-            </thead>
-            <tbody class="font-mono text-[13px]">
-              {
-                BENCH.map((r) => (
-                  <tr class="border-b border-line last:border-0">
-                    <th scope="row" class="px-5 py-3 font-sans font-normal text-fg">{r.scenario}</th>
-                    <td class="px-3 py-3 text-muted">{r.agent}</td>
-                    <td class="px-3 py-3 text-fg">{r.hotpath}</td>
-                    <td class="px-3 py-3 text-ok">{r.faster}</td>
-                    <td class="px-5 py-3 text-ok">{r.cheaper}</td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </div>
-        <p class="border-t border-line px-5 py-3 text-xs text-muted">
-          Small demo tasks, one run each, rate-limit waits excluded, costs from placeholder per-token prices.{" "}
+        <ul class="mt-5 divide-y divide-line border-y border-line">
+          {
+            BENCH.map((b) => (
+              <li class="grid grid-cols-[1fr_auto] gap-x-6 gap-y-3 py-5">
+                <div class="min-w-0">
+                  <p class="text-[15px]">
+                    {b.task} <span class="text-muted">· {b.data}</span>
+                  </p>
+                  <div class="bars mt-3 space-y-1.5" role="img" aria-label={`${b.task}, ${b.data}: agent ${b.agentS} seconds, hotpath ${b.hotS} seconds`}>
+                    <div class="flex items-center gap-3">
+                      <span class="bar bar-cold" style={`--p:${frac(b.agentS)}`} />
+                      <span class="num font-mono text-[11px] whitespace-nowrap text-muted">{b.agentS}s · ${b.agentUsd}</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                      <span class="bar bar-hot heat-line" style={`--p:${frac(b.hotS)}`} />
+                      <span class="num font-mono text-[11px] whitespace-nowrap text-fg">{b.hotS}s · ${b.hotUsd}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <p class="display num text-4xl">{b.faster}</p>
+                  <p class="font-mono text-[10.5px] text-muted">faster · {b.cheaper} cheaper</p>
+                </div>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-4 text-[13px] text-muted">
+          Small demo tasks on Groq, one run each, rate-limit waits excluded, costs from placeholder per-token prices.{" "}
           <a href={BENCHMARK_URL} class="text-accent underline underline-offset-4 hover:decoration-2">Full results and limits →</a>
         </p>
       </div>
-      <figure class="card overflow-hidden">
+
+      <figure class="reveal frame card overflow-hidden self-start" style="--delay:120ms">
+        <div class="flex items-center gap-2 border-b border-line px-4 py-2.5 font-mono text-[10.5px] text-muted">
+          <span class="rec" aria-hidden="true"></span> REC · the real recording
+        </div>
         <img
           src="/demo.gif"
           alt="Screen recording: Claude Code doing the morning brief through the Hotpath recorder"
@@ -109,54 +140,76 @@ import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STATS, STEPS } from "../content";
           height="450"
           loading="lazy"
           decoding="async"
-          class="h-auto w-full bg-[#0b0d12]"
+          class="h-auto w-full bg-[#0d0a08]"
         />
-        <figcaption class="border-t border-line px-5 py-3 text-xs text-muted">
-          The real recording: Claude Code doing the task once, through Hotpath.
+        <figcaption class="border-t border-line px-4 py-3 text-[13px] text-muted">
+          Claude Code doing the task once, through Hotpath. Everything after this runs without it.
         </figcaption>
       </figure>
     </div>
   </div>
 </section>
 
-<section class="border-t border-line py-14">
-  <div class="wrap flex flex-col items-center gap-6 text-center md:flex-row md:justify-between md:text-left">
-    <p class="text-sm text-muted">Works with any agent that speaks MCP over stdio</p>
-    <ul class="flex flex-wrap justify-center gap-3">
-      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="SquareTerminal" size={16} /> Claude Code</li>
-      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="Bot" size={16} /> OpenClaw</li>
-      <li class="pill bg-surface px-3.5 py-1.5 text-sm text-fg"><Icon name="Plug" size={16} /> Any stdio MCP server</li>
-    </ul>
+<!-- WORKS WITH -->
+<section class="marquee border-y border-line py-6" aria-label="Works with">
+  <p class="sr-only">Works with Claude Code, OpenClaw, any stdio MCP server and your own agent.</p>
+  <div class="marquee-track" aria-hidden="true">
+    {
+      [0, 1].map(() => (
+        <div class="marquee-row">
+          <span class="eyebrow shrink-0">works with</span>
+          {marquee.map((m) => (
+            <span class="flex shrink-0 items-center gap-10">
+              <span class="display text-4xl whitespace-nowrap italic sm:text-5xl">{m}</span>
+              <span class="text-accent">✦</span>
+            </span>
+          ))}
+        </div>
+      ))
+    }
   </div>
 </section>
 
-<section id="features" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+<!-- 04 · FEATURES -->
+<section id="features" class="scroll-mt-16 py-24 sm:py-32">
   <div class="wrap">
-    <p class="eyebrow">Features</p>
-    <h2 class="h2 mt-3">Almost everything is plain code. One step is AI.</h2>
-    <p class="lead mt-4">
-      That's the whole idea: grey boxes run as code, the purple box is the only place a model is called.
-    </p>
-    <div class="mt-10 flex flex-wrap items-center gap-2 font-mono text-xs" aria-label="Example workflow: four tool steps and one AI step">
-      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_emails</span>
-      <span class="text-muted" aria-hidden="true">→</span>
-      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_calendar</span>
-      <span class="text-muted" aria-hidden="true">→</span>
-      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">get_weather</span>
-      <span class="text-muted" aria-hidden="true">→</span>
-      <span class="rounded-md border border-ai bg-ai-soft px-2.5 py-1.5 text-ai">AI: write the brief</span>
-      <span class="text-muted" aria-hidden="true">→</span>
-      <span class="rounded-md border border-line bg-surface-2 px-2.5 py-1.5">send_message <span class="text-warn">⚡</span></span>
+    <div class="reveal">
+      <p class="eyebrow">04 · Features</p>
+      <h2 class="h2 mt-5 max-w-[16ch]">Almost everything is plain code. <em class="italic heat-text pr-1">One step is AI.</em></h2>
     </div>
-    <ul class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+    <ul class="bento mt-16 grid gap-3 md:grid-cols-3">
       {
-        FEATURES.map((f) => (
-          <li class="card p-6 transition-colors duration-150 hover:border-muted/40">
-            <span class="grid size-9 place-items-center rounded-lg bg-surface-2 text-fg">
-              <Icon name={f.icon} size={18} />
-            </span>
-            <h3 class="mt-4 font-semibold">{f.title}</h3>
-            <p class="mt-2 text-[15px] text-muted">{f.text}</p>
+        FEATURES.map((f, i) => (
+          <li class:list={["reveal card relative min-w-0 overflow-hidden p-7", i === 1 && "md:col-span-2", i === 5 && "md:col-span-3"]} style={`--delay:${(i % 3) * 90}ms`}>
+            <div class="flex items-center justify-between">
+              <span class="grid size-10 place-items-center rounded-full border border-line text-fg">
+                <Icon name={f.icon} size={18} />
+              </span>
+              <span class="font-mono text-[10.5px] text-muted">0{i + 1}</span>
+            </div>
+            <h3 class="display mt-6 text-3xl">{f.title}</h3>
+            <p class="mt-3 max-w-[52ch] text-[15px] text-muted">{f.text}</p>
+            {i === 1 && (
+              <div class="mt-7 flex flex-wrap items-center gap-2 font-mono text-[11px]" aria-label="Example workflow: four tool steps and one AI step">
+                <span class="chip">get_emails</span>
+                <span class="text-muted" aria-hidden="true">→</span>
+                <span class="chip">get_calendar</span>
+                <span class="text-muted" aria-hidden="true">→</span>
+                <span class="chip">get_weather</span>
+                <span class="text-muted" aria-hidden="true">→</span>
+                <span class="chip chip-ai">AI · write the brief</span>
+                <span class="text-muted" aria-hidden="true">→</span>
+                <span class="chip">send_message <span class="text-warn">⚡</span></span>
+              </div>
+            )}
+            {i === 5 && (
+              <pre class="mt-6 overflow-x-auto rounded-[10px] border border-line bg-surface-2 p-4 text-[11.5px] leading-6 text-muted"><code><span class="text-fg">workflows/brief.json</span>
+{`{ "id": "s2", "type": "foreach", "as": "email",
+  "over": "{{steps.s1.result.emails}}", "maxItems": 50,
+  "body": [{ "id": "s2.1", "type": "tool", "tool": "get_email",
+             "args": { "id": "{{email.id}}" }, "sideEffect": false }] }`}</code></pre>
+            )}
           </li>
         ))
       }
@@ -164,27 +217,127 @@ import { BENCH, BENCHMARK_URL, FAQ, FEATURES, STATS, STEPS } from "../content";
   </div>
 </section>
 
-<section id="faq" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
-  <div class="wrap grid gap-10 lg:grid-cols-[1fr_1.6fr]">
-    <div>
-      <p class="eyebrow">Honest limits</p>
-      <h2 class="h2 mt-3">Questions, answered straight.</h2>
-      <p class="lead mt-4">Hotpath is early and says so. Here is what it does and doesn't do today.</p>
+<!-- 05 · FAQ -->
+<section id="faq" class="scroll-mt-16 border-t border-line py-24 sm:py-32">
+  <div class="wrap grid gap-12 lg:grid-cols-[1fr_1.5fr]">
+    <div class="reveal lg:sticky lg:top-28 lg:self-start">
+      <p class="eyebrow">05 · Honest limits</p>
+      <h2 class="h2 mt-5">Questions, <em class="italic">answered straight.</em></h2>
+      <p class="lead mt-6">Hotpath is early and says so. Here is what it does, and doesn't do, today.</p>
     </div>
-    <div class="divide-y divide-line border-y border-line">
+    <div class="reveal border-t border-line" style="--delay:100ms">
       {
-        FAQ.map((item) => (
-          <details class="group py-1">
-            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium [&::-webkit-details-marker]:hidden">
-              {item.q}
+        FAQ.map((item, i) => (
+          <details class="group border-b border-line">
+            <summary class="flex cursor-pointer list-none items-baseline gap-5 py-6 [&::-webkit-details-marker]:hidden">
+              <span class="num font-mono text-[11px] text-muted">{String(i + 1).padStart(2, "0")}</span>
+              <span class="display flex-1 text-2xl sm:text-3xl">{item.q}</span>
               <span class="text-muted transition-transform duration-200 group-open:rotate-45" aria-hidden="true">
-                <Icon name="Plus" size={18} />
+                <Icon name="Plus" size={20} />
               </span>
             </summary>
-            <p class="pb-5 text-[15px] text-muted">{item.a}</p>
+            <p class="pb-7 pl-10 text-[15px] text-muted">{item.a}</p>
           </details>
         ))
       }
     </div>
   </div>
 </section>
+
+<style>
+  .step-bar {
+    position: absolute;
+    top: -1px;
+    left: 0;
+    height: 2px;
+    width: 0;
+    transition: width 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 200ms;
+  }
+  @media (min-width: 768px) {
+    li + li .step-bar {
+      left: 2rem;
+    }
+  }
+  :global(.is-in) > .step-bar {
+    width: 56px;
+  }
+  .bar {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    /* leave room for the label next to the bar */
+    width: calc((100% - 9.5rem) * var(--p));
+    min-width: 8px;
+    flex: none;
+    transform-origin: left;
+  }
+  .bar-cold {
+    background: repeating-linear-gradient(-45deg, var(--cold) 0 4px, color-mix(in oklab, var(--cold) 60%, transparent) 4px 8px);
+  }
+  :global(.reveal) .bar {
+    transform: scaleX(0);
+    transition: transform 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 250ms;
+  }
+  :global(.reveal.is-in) .bar,
+  :global(html:not(.js)) .bar {
+    transform: none;
+  }
+  .legend-cold,
+  .legend-hot {
+    display: inline-block;
+    width: 18px;
+    height: 6px;
+    border-radius: 999px;
+  }
+  .legend-cold {
+    background: var(--cold);
+  }
+  .rec {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--danger);
+    animation: rec 1.6s steps(2, jump-none) infinite;
+  }
+  @keyframes rec {
+    50% {
+      opacity: 0.25;
+    }
+  }
+  .marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 38s linear infinite;
+  }
+  .marquee-row {
+    display: flex;
+    align-items: center;
+    gap: 2.5rem;
+    padding-right: 2.5rem;
+  }
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  .chip {
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+  }
+  .chip-ai {
+    border-color: var(--ai);
+    background: var(--ai-soft);
+    color: var(--ai);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+  }
+</style>

@@ -1,11 +1,11 @@
 # hotpath.run
 
 The Hotpath landing page and Hotpath Cloud waitlist. Astro (static output) + Tailwind CSS
-v4, the design tokens from `ship/design/DESIGN.md`, Geist fonts and Lucide icons, all
-self-hosted. No client framework: the copy button, theme toggle, hero animation and form
-are a few small inline scripts.
+v4, the "heat signature" design from `ship/design/DESIGN.md` (Instrument Serif, Geist,
+Martian Mono, Lucide icons, all self-hosted). No client framework: the copy button, theme
+toggle, animations and form are a few small inline scripts.
 
-Lighthouse (mobile, 2026-10-01, light and dark): performance 99, accessibility 100,
+Lighthouse (mobile, 2026-10-01, light and dark): performance 95, accessibility 100,
 best practices 100, SEO 100. No horizontal scroll at 360px.
 
 ## Run it
@@ -28,12 +28,13 @@ the stats, the benchmark rows, features and FAQ. Keep numbers in sync with
 | File                                 | What                                            |
 | ------------------------------------ | ----------------------------------------------- |
 | `src/pages/index.astro`              | Page order                                      |
-| `src/components/Hero.astro`          | Headline, install command, hero animation       |
-| `src/components/TraceCollapse.astro` | The signature "trace → workflow" animation      |
+| `src/components/Hero.astro`          | Headline, install ticket, stats bar             |
+| `src/components/HeatField.astro`     | The hero's thermal scan with the hot path       |
+| `src/components/TraceCollapse.astro` | The "trace → workflow" compile animation        |
 | `src/components/Sections.astro`      | How it works, proof, works with, features, FAQ  |
 | `src/components/Cloud.astro`         | Cloud teaser and waitlist form                  |
 | `src/styles/global.css`              | Design tokens (light, dark) and small utilities |
-| `og/og.html`                         | Source of `public/og.png`                       |
+| `src/pages/og.astro`                 | Source of `public/og.png` (the social card)     |
 
 ## Waitlist (M26)
 
@@ -71,11 +72,12 @@ Pages (free).
 
 ## Regenerate the Open Graph image
 
-`public/og.png` is a 1200×630 screenshot of `og/og.html`. After editing the HTML, open it
-in a browser at 1200×630 and save a screenshot, or with Playwright:
+`public/og.png` is a 1200×630 screenshot of the `/og` page (same fonts, tokens and heat
+field as the site). Run `pnpm --filter site dev`, open http://localhost:4321/og/ at
+1200×630 and save a screenshot, or with Playwright:
 
 ```js
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 } });
-await page.goto(`file://${process.cwd()}/og/og.html`);
+await page.goto("http://localhost:4321/og/");
 await page.screenshot({ path: "public/og.png" });
 ```

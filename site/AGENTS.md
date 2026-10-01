@@ -15,7 +15,13 @@ start over.
   `src/styles/global.css` and mapped to utilities with `@theme inline` (`bg-surface`,
   `text-muted`, `text-accent`, `text-ai`, `border-line`, …). Custom utilities use
   `@utility` (Tailwind v4 does not allow `@apply` on component classes).
-- Fonts: Geist and Geist Mono from `@fontsource-variable`, self-hosted.
+- Fonts (self-hosted via Fontsource): **Instrument Serif** for display, **Geist** for body,
+  **Martian Mono** for labels and code. Keep the size-adjusted serif fallback and the
+  preloads in `Base.astro`, or the headline shifts when the font loads.
+- Art direction "heat signature": cold grey steps, one glowing hot path. The heat
+  gradient (`--heat-1…5`, `heat-text`, `heat-line`) is for the hot path and a few hero
+  words only. The hero visual is `src/components/HeatField.astro` (seeded, generated at
+  build time).
 - Icons: `lucide-static` through `src/components/Icon.astro`. Lucide has no brand logos:
   GitHub is `src/components/GithubMark.astro`.
 
@@ -49,7 +55,8 @@ npm run build && npm test
 ```
 
 Then check in a browser at 360px and 1440px, light and dark, and run Lighthouse (mobile):
-all four scores must stay ≥ 95 (today: 99/100/100/100). Never add analytics, fonts or
+all four scores must stay ≥ 95 (today: 95/100/100/100). Avoid SVG blur filters and
+other per-frame repaint costs in animations; they cost mobile performance. Never add analytics, fonts or
 scripts from third-party hosts beyond what `README.md` documents. Never commit secrets;
 the waitlist endpoint and analytics token are build-time environment variables.
 

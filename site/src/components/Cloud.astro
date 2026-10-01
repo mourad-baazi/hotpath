@@ -2,47 +2,46 @@
 import Icon from "./Icon.astro";
 import { GITHUB_URL, WAITLIST_ENDPOINT } from "../content";
 
-
 // A hosted form backend that accepts a JSON POST (Formspree by default; the
 // endpoint is public by design, it ends up in the page either way).
 // PUBLIC_WAITLIST_ENDPOINT at build time overrides it.
 const endpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT || WAITLIST_ENDPOINT;
 const perks = [
   { icon: "Cloud", text: "Your schedules run 24/7, laptop closed" },
-  { icon: "LayoutDashboard", text: "Dashboard: runs, costs and savings at a glance" },
+  { icon: "LayoutDashboard", text: "Runs, costs and savings at a glance" },
   { icon: "BellRing", text: "Alerts on drift and failures, where your team is" },
   { icon: "Users", text: "Share workflows with your team" },
 ] as const;
 ---
 
-<section id="cloud" class="scroll-mt-16 border-t border-line py-20 sm:py-28">
+<section id="cloud" class="scroll-mt-16 pb-24 sm:pb-32">
   <div class="wrap">
-    <div class="cloud card relative overflow-hidden p-6 sm:p-10 lg:p-12">
-      <div class="cloud-glow" aria-hidden="true"></div>
-      <div class="relative grid gap-10 lg:grid-cols-2 lg:gap-14">
-        <div>
+    <div class="cloud reveal relative overflow-hidden rounded-[22px] p-[1.5px]">
+      <div class="cloud-inner relative grid gap-12 overflow-hidden rounded-[21px] bg-surface p-7 sm:p-12 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:p-16">
+        <div class="cloud-glow" aria-hidden="true"></div>
+        <div class="relative">
           <p class="eyebrow">Hotpath Cloud · coming later</p>
-          <h2 class="h2 mt-3">Runs 24/7 without your laptop.</h2>
-          <p class="lead mt-4">
+          <h2 class="h2 mt-5">Runs 24/7 <em class="italic heat-text pr-1">without your laptop.</em></h2>
+          <p class="lead mt-6">
             The open-source CLI stays free. Cloud is for when your workflows should keep running while you sleep.
           </p>
-          <ul class="mt-8 space-y-3">
+          <ul class="mt-9 grid gap-4 sm:grid-cols-2">
             {
               perks.map((p) => (
-                <li class="flex items-center gap-3 text-[15px]">
-                  <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
-                    <Icon name={p.icon} size={16} />
+                <li class="flex items-start gap-3 text-[15px]">
+                  <span class="grid size-8 shrink-0 place-items-center rounded-full border border-line text-accent">
+                    <Icon name={p.icon} size={15} />
                   </span>
-                  {p.text}
+                  <span class="pt-1">{p.text}</span>
                 </li>
               ))
             }
           </ul>
         </div>
 
-        <form id="waitlist" class="flex flex-col gap-4 self-center" data-endpoint={endpoint} novalidate>
+        <form id="waitlist" class="relative flex flex-col gap-5 self-center" data-endpoint={endpoint} novalidate>
           <div>
-            <label for="wl-email" class="text-sm font-medium">Email</label>
+            <label for="wl-email" class="eyebrow">Email</label>
             <input
               id="wl-email"
               name="email"
@@ -50,12 +49,12 @@ const perks = [
               required
               autocomplete="email"
               placeholder="you@company.com"
-              class="mt-1.5 w-full rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[15px] placeholder:text-muted/70 focus:border-accent focus:outline-none"
+              class="field mt-2"
             />
           </div>
           <div>
-            <label for="wl-task" class="text-sm font-medium">
-              What would you automate? <span class="font-normal text-muted">(optional)</span>
+            <label for="wl-task" class="eyebrow">
+              What would you automate? <span class="normal-case">(optional)</span>
             </label>
             <textarea
               id="wl-task"
@@ -63,21 +62,20 @@ const perks = [
               rows="3"
               maxlength="500"
               placeholder="e.g. a daily digest of new GitHub issues, posted to Slack"
-              class="mt-1.5 w-full resize-y rounded-lg border border-line bg-surface-2 px-3.5 py-2.5 text-[15px] placeholder:text-muted/70 focus:border-accent focus:outline-none"
-            ></textarea>
+              class="field mt-2 resize-y"></textarea>
           </div>
           <!-- bots fill every field; people never see this one -->
           <input type="text" name="company" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
-          <button type="submit" class="btn-primary py-3 text-[15px]">Join the waitlist</button>
+          <button type="submit" class="btn-primary py-3.5 text-[12.5px]">Join the waitlist →</button>
           <p class="wl-status min-h-5 text-sm" role="status" aria-live="polite"></p>
-          <p class="text-xs text-muted">
+          <p class="text-[12.5px] leading-relaxed text-muted">
             We store your email, and your answer if you give one, only to tell you when Cloud opens. No tracking, no
             sharing. Every email has an unsubscribe link; reply to any of them and we delete your data.
           </p>
         </form>
       </div>
     </div>
-    <p class="mt-6 text-center text-sm text-muted">
+    <p class="mt-8 text-center text-sm text-muted">
       Rather follow along on GitHub?{" "}
       <a href={GITHUB_URL} class="text-accent underline underline-offset-4 hover:decoration-2">Star the repo</a>{" "}
       and watch releases.
@@ -86,12 +84,46 @@ const perks = [
 </section>
 
 <style>
+  /* thermal gradient border */
+  .cloud {
+    background: conic-gradient(
+      from 210deg,
+      var(--heat-1),
+      var(--heat-2),
+      var(--heat-3),
+      var(--heat-4),
+      var(--border) 70%,
+      var(--border) 85%,
+      var(--heat-1)
+    );
+  }
   .cloud-glow {
     position: absolute;
-    inset: -40% -10% auto auto;
-    width: 36rem;
-    height: 36rem;
-    background: radial-gradient(closest-side, var(--glow), transparent);
+    right: -12rem;
+    top: -14rem;
+    width: 38rem;
+    height: 38rem;
+    background: radial-gradient(closest-side, color-mix(in oklab, var(--heat-3) 22%, transparent), transparent);
+    pointer-events: none;
+  }
+  .field {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    font-size: 15px;
+    transition:
+      border-color 150ms ease-out,
+      box-shadow 150ms ease-out;
+  }
+  .field::placeholder {
+    color: color-mix(in oklab, var(--text-muted) 80%, transparent);
+  }
+  .field:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
   }
 </style>
 
