@@ -259,7 +259,7 @@ export async function applyPlan(
       // Task Scheduler reads its XML as UTF-16 (with a byte order mark)
       const body =
         plan.platform === "win32" && f.path.endsWith(".xml")
-          ? Buffer.from(`﻿${f.content}`, "utf16le")
+          ? Buffer.from(`\ufeff${f.content}`, "utf16le")
           : f.content;
       await writeFile(f.path, body);
     }
