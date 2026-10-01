@@ -44,7 +44,7 @@ const onlyTask = argv.includes("--task")
   ? argv[argv.indexOf("--task") + 1]
   : undefined;
 
-const TASKS = ["morning-brief", "weekly-report"];
+const TASKS = ["morning-brief", "weekly-report", "inbox-digest"];
 const AGENT_TIMEOUT_MS = 10 * 60_000;
 const RUN_TIMEOUT_MS = 10 * 60_000;
 const NO_TIMING: Timing = { durationMs: 0, costUsd: 0 };
@@ -292,7 +292,7 @@ async function benchTask(
 
 async function main(): Promise<void> {
   // The demo servers run from their built output (no tsx/pnpm startup cost).
-  for (const file of ["index.js", "weekly.js"]) {
+  for (const file of ["index.js", "weekly.js", "inbox.js"]) {
     if (!existsSync(path.join(repoRoot, "examples/demo-tools/dist", file))) {
       throw new Error(
         "examples/demo-tools/dist is missing — run `pnpm --filter demo-tools build` first",

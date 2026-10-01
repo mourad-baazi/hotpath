@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   readTrace,
   workflowSchema,
+  type ToolStep,
   type TraceFile,
   type Workflow,
 } from "hotpath-shared";
@@ -132,7 +133,8 @@ export async function compileTask(
 export function lostReadOnlySteps(old: Workflow, next: Workflow): string[] {
   const count = (w: Workflow) => {
     const counts = new Map<string, number>();
-    for (const step of w.steps) {
+    const tools = w.steps.flatMap((s) => (s.type === "foreach" ? s.body : [s]));
+    for (const step of tools) {
       if (step.type === "tool" && !step.sideEffect) {
         counts.set(step.tool, (counts.get(step.tool) ?? 0) + 1);
       }
@@ -164,15 +166,24 @@ export async function loadWorkflow(task: string): Promise<Workflow> {
 }
 
 // `s1 tool get_emails(date={{inputs.date}})` / `s4 llm (cheap) → s5.text`
+// `s3 foreach email in {{steps.s1.result.emails}} (max 50)` + indented body
 export function formatWorkflow(workflow: Workflow): string {
   const lines: string[] = [];
+  const toolLine = (step: ToolStep, indent: string) => {
+    const args = Object.entries(step.args)
+      .map(([k, v]) => `${k}=${formatValue(v)}`)
+      .join(", ");
+    const mark = step.sideEffect ? " ⚡" : "";
+    lines.push(`${indent}${step.id} tool ${step.tool}(${args})${mark}`);
+  };
   for (const step of workflow.steps) {
     if (step.type === "tool") {
-      const args = Object.entries(step.args)
-        .map(([k, v]) => `${k}=${formatValue(v)}`)
-        .join(", ");
-      const mark = step.sideEffect ? " ⚡" : "";
-      lines.push(`${step.id} tool ${step.tool}(${args})${mark}`);
+      toolLine(step, "");
+    } else if (step.type === "foreach") {
+      lines.push(
+        `${step.id} foreach ${step.as} in ${step.over} (max ${step.maxItems})`,
+      );
+      for (const body of step.body) toolLine(body, "  ");
     } else {
       const consumer = findOutputConsumer(workflow, step.id);
       const arrow = consumer ? ` → ${consumer.stepId}.${consumer.arg}` : "";
@@ -186,7 +197,10 @@ function findOutputConsumer(
   workflow: Workflow,
   llmId: string,
 ): { stepId: string; arg: string } | null {
-  for (const step of workflow.steps) {
+  const tools = workflow.steps.flatMap((s) =>
+    s.type === "foreach" ? s.body : [s],
+  );
+  for (const step of tools) {
     if (step.type !== "tool") continue;
     for (const [arg, value] of Object.entries(step.args)) {
       if (value === `{{steps.${llmId}.output}}`)

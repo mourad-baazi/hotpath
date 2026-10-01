@@ -93,9 +93,30 @@ export const llmStepSchema = z.object({
 });
 export type LlmStep = z.infer<typeof llmStepSchema>;
 
+/**
+ * Runs `body` once per item of the list `over` resolves to. Inside the body,
+ * `{{<as>.<path>}}` is the current item; afterwards `{{steps.<id>.results}}`
+ * is the list of per-item results.
+ */
+export const foreachStepSchema = z.object({
+  id: z.string(),
+  type: z.literal("foreach"),
+  over: z.string(),
+  as: z
+    .string()
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+    .refine((v) => v !== "inputs" && v !== "steps", "reserved name"),
+  body: z.array(toolStepSchema).min(1),
+  maxItems: z.number().int().positive(),
+});
+export type ForeachStep = z.infer<typeof foreachStepSchema>;
+
+export const DEFAULT_MAX_ITEMS = 50;
+
 export const workflowStepSchema = z.discriminatedUnion("type", [
   toolStepSchema,
   llmStepSchema,
+  foreachStepSchema,
 ]);
 export type WorkflowStep = z.infer<typeof workflowStepSchema>;
 

@@ -1,0 +1,10 @@
+{
+  "emails": [
+    {
+      "id": "e1",
+      "from": "alice@corp.com",
+      "subject": "Q3 budget review moved to 14:00",
+      "body": "Hi, the Q3 budget review has been moved to 14:00 in Room A. Please review the deck beforehand."
+    }
+  ]
+}

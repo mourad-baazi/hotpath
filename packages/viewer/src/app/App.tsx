@@ -11,9 +11,14 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useEffect, useMemo, useState } from "react";
 
-import type { Workflow } from "hotpath-shared";
+import type { ToolStep, Workflow, WorkflowStep } from "hotpath-shared";
 
-import { summarize, workflowToGraph, type StepNodeData } from "../graph.js";
+import {
+  allSteps,
+  summarize,
+  workflowToGraph,
+  type StepNodeData,
+} from "../graph.js";
 
 function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
   const classes = [
@@ -38,7 +43,25 @@ function StepNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
   );
 }
 
-const nodeTypes = { step: StepNode };
+function LoopNode({ data, selected }: NodeProps<Node<StepNodeData>>) {
+  const step = data.step;
+  return (
+    <div className={`loop ${selected ? "step-selected" : ""}`}>
+      <Handle type="target" position={Position.Top} />
+      <div className="loop-header">
+        <span className="tag tag-loop">↻ loop</span>
+        <span className="step-id">{step.id}</span>
+        <span className="loop-label">{data.label}</span>
+        {step.type === "foreach" && (
+          <span className="loop-max">max {step.maxItems}</span>
+        )}
+      </div>
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}
+
+const nodeTypes = { step: StepNode, loop: LoopNode };
 
 export function App() {
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
@@ -65,7 +88,7 @@ export function App() {
   if (error) return <div className="message error">{error}</div>;
   if (!workflow || !graph) return <div className="message">Loading…</div>;
 
-  const step = workflow.steps.find((s) => s.id === selected) ?? null;
+  const step = allSteps(workflow).find((s) => s.id === selected) ?? null;
   const edges: Edge[] = graph.edges;
 
   return (
@@ -77,6 +100,7 @@ export function App() {
           <span className="tag">tool</span>
           <span className="tag tag-ai">AI</span>
           <span className="tag tag-effect">⚡ side effect</span>
+          <span className="tag tag-loop">↻ loop</span>
         </span>
       </header>
       <main>
@@ -108,8 +132,25 @@ export function App() {
   );
 }
 
-function StepPanel({ step }: { step: Workflow["steps"][number] }) {
+function StepPanel({ step }: { step: WorkflowStep | ToolStep }) {
   const pretty = (value: unknown) => JSON.stringify(value, null, 2);
+  if (step.type === "foreach") {
+    return (
+      <div>
+        <h2>
+          {step.id} · for each {step.as}
+        </h2>
+        <h3>Over</h3>
+        <pre>{step.over}</pre>
+        <p>
+          Runs {step.body.length === 1 ? "its step" : "its steps"} once per
+          item, in order, up to {step.maxItems} items. Inside, {"{{"}
+          {step.as}.…{"}}"} is the current item; afterwards {"{{"}steps.
+          {step.id}.results{"}}"} is the list of results.
+        </p>
+      </div>
+    );
+  }
   return (
     <div>
       <h2>

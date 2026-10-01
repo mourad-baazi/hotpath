@@ -56,6 +56,15 @@ const PROMPTS: Record<
     // models often make one tool call per turn, and this task needs 13
     maxTurns: 20,
   },
+  "inbox-digest": {
+    system: (date) =>
+      `You are a personal assistant. Today is ${date}. Produce the inbox digest: call ` +
+      `get_inbox, then open every email with get_email, one at a time and in the order ` +
+      `get_inbox returned them, then call send_message with to="me" and a digest that ` +
+      `mentions every email's subject and sender with one line about its content.`,
+    user: "Please produce the inbox digest now.",
+    maxTurns: 16,
+  },
 };
 
 function promptFor(task: string) {
