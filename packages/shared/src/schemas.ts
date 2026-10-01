@@ -132,5 +132,13 @@ export const workflowSchema = z.object({
   steps: z.array(workflowStepSchema),
   /** failed/retried calls from the trace that did not become steps */
   droppedCalls: z.array(droppedCallSchema).optional(),
+  /** what the recorded agent run took: the reference for "saved" estimates */
+  baseline: z
+    .object({
+      durationMs: z.number().nonnegative(),
+      /** only when the agent reported it (out/agent-run.json during the trace) */
+      costUsd: z.number().nonnegative().optional(),
+    })
+    .optional(),
 });
 export type Workflow = z.infer<typeof workflowSchema>;

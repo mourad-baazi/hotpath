@@ -1,8 +1,13 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readTrace, workflowSchema, type Workflow } from "hotpath-shared";
+import {
+  readTrace,
+  workflowSchema,
+  type TraceFile,
+  type Workflow,
+} from "hotpath-shared";
 
 import { compileTrace } from "./compiler.js";
 
@@ -46,10 +51,49 @@ export async function compileTaskInMemory(
       `trace task is "${trace.meta.task}" but you asked to compile "${task}" — check --trace`,
     );
   }
-  const workflow = workflowSchema.parse(
-    compileTrace(trace, path.relative(repoRoot, resolved).replace(/\\/g, "/")),
+  const compiled = compileTrace(
+    trace,
+    path.relative(repoRoot, resolved).replace(/\\/g, "/"),
   );
+  const workflow = workflowSchema.parse({
+    ...compiled,
+    baseline: await agentBaseline(trace),
+  });
   return { workflow, traceFile: resolved };
+}
+
+/**
+ * The recorded run's wall time, plus the agent's cost when the agent reported
+ * one (the demo agent writes out/agent-run.json) while this trace was recorded.
+ * A cost from another run is never borrowed.
+ */
+export async function agentBaseline(
+  trace: TraceFile,
+  agentRunFile = path.join(repoRoot, "out", "agent-run.json"),
+): Promise<Workflow["baseline"]> {
+  const start = Date.parse(trace.meta.startedAt);
+  const end = Date.parse(trace.end.endedAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return undefined;
+  }
+  const baseline: NonNullable<Workflow["baseline"]> = {
+    durationMs: end - start,
+  };
+  try {
+    const { mtimeMs } = await stat(agentRunFile);
+    // the agent writes its metrics right after its MCP session closes
+    if (mtimeMs >= start - 5_000 && mtimeMs <= end + 120_000) {
+      const run = JSON.parse(await readFile(agentRunFile, "utf8")) as {
+        costUsd?: unknown;
+      };
+      if (typeof run.costUsd === "number" && run.costUsd >= 0) {
+        baseline.costUsd = run.costUsd;
+      }
+    }
+  } catch {
+    // no agent metrics: cost stays unknown
+  }
+  return baseline;
 }
 
 export async function saveWorkflow(workflow: Workflow): Promise<void> {

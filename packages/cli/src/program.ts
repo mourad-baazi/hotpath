@@ -8,6 +8,23 @@ import {
 } from "hotpath-compiler";
 import { runRecorder } from "hotpath-recorder";
 import { runTask } from "hotpath-runtime";
+import {
+  addSchedule,
+  computeStats,
+  defaultStateDir,
+  formatStats,
+  loadBaselines,
+  loadSchedules,
+  nextRun,
+  parseSince,
+  readRuns,
+  removeSchedule,
+  runDueOnce,
+  runtimeRunner,
+  setScheduleEnabled,
+  startDaemon,
+  table,
+} from "hotpath-scheduler";
 import { startViewer } from "hotpath-viewer";
 import path from "node:path";
 
@@ -195,7 +212,246 @@ export function createProgram(): Command {
       },
     );
 
+  addScheduleCommands(program);
+  addDaemonCommands(program);
+
   return program;
+}
+
+/** Print the error and exit 1: every scheduler command fails the same way. */
+async function guarded(fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+}
+
+function parseFallback(value: string): "auto" | "notify" | "off" {
+  if (value === "auto" || value === "notify" || value === "off") return value;
+  throw new InvalidArgumentError("expected auto, notify or off");
+}
+
+function parsePositiveInt(value: string): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new InvalidArgumentError("expected a positive whole number");
+  }
+  return n;
+}
+
+function addScheduleCommands(program: Command): void {
+  const schedule = program
+    .command("schedule")
+    .description("Run compiled workflows on a schedule (see `hotpath daemon`)");
+
+  schedule
+    .command("add")
+    .description("Add a schedule for a compiled task")
+    .argument("<task>", "task name (workflows/<task>.json must exist)")
+    .requiredOption("--cron <expr>", 'cron expression, e.g. "0 7 * * 1-5"')
+    .option("--tz <zone>", "IANA time zone (default: this computer's)")
+    .option(
+      "--input <key=value...>",
+      "inputs; @today, @yesterday, @tomorrow, @now and @weekday resolve at run time",
+      collectInputs,
+      {} as Record<string, string>,
+    )
+    .option(
+      "--allow-side-effects",
+      "really run side-effect steps (default: dry-run them)",
+    )
+    .option(
+      "--fallback <mode>",
+      "on drift: auto (run the agent), notify (default) or off",
+      parseFallback,
+    )
+    .action(
+      (
+        task: string,
+        options: {
+          cron: string;
+          tz?: string;
+          input: Record<string, string>;
+          allowSideEffects?: boolean;
+          fallback?: "auto" | "notify" | "off";
+        },
+      ) =>
+        guarded(async () => {
+          const s = await addSchedule(defaultStateDir, {
+            task,
+            cron: options.cron,
+            timezone: options.tz,
+            inputs: options.input,
+            allowSideEffects: options.allowSideEffects,
+            fallback: options.fallback,
+          });
+          const next = nextRun(s.cron, s.timezone, new Date());
+          console.log(
+            `added ${s.id}: ${s.task} at "${s.cron}" (${s.timezone}), next run ${next?.toISOString() ?? "never"}`,
+          );
+          if (s.sideEffects === "dry-run") {
+            console.log(
+              "side effects are dry-run: steps marked ⚡ are skipped until you add the schedule with --allow-side-effects",
+            );
+          }
+          console.log("start the scheduler with: hotpath daemon");
+        }),
+    );
+
+  schedule
+    .command("list")
+    .description("List schedules with their next run and last status")
+    .action(() =>
+      guarded(async () => {
+        const schedules = await loadSchedules(defaultStateDir);
+        if (schedules.length === 0) {
+          console.log(
+            'no schedules yet — add one with: hotpath schedule add <task> --cron "0 7 * * *"',
+          );
+          return;
+        }
+        const runs = await readRuns(defaultStateDir);
+        const now = new Date();
+        console.log(
+          table(
+            ["id", "task", "cron", "next run", "enabled", "last status"],
+            schedules.map((s) => {
+              const last = runs.filter((r) => r.scheduleId === s.id).at(-1);
+              return [
+                s.id,
+                s.task,
+                `${s.cron} (${s.timezone})`,
+                s.enabled
+                  ? (nextRun(s.cron, s.timezone, now)?.toISOString() ?? "never")
+                  : "-",
+                s.enabled ? "yes" : "no",
+                last ? `${last.status} ${last.startedAt}` : "-",
+              ];
+            }),
+          ),
+        );
+      }),
+    );
+
+  schedule
+    .command("remove")
+    .description("Remove a schedule")
+    .argument("<id>", "schedule id (see hotpath schedule list)")
+    .action((id: string) =>
+      guarded(async () => {
+        await removeSchedule(defaultStateDir, id);
+        console.log(`removed ${id}`);
+      }),
+    );
+
+  for (const [name, enabled] of [
+    ["enable", true],
+    ["disable", false],
+  ] as const) {
+    schedule
+      .command(name)
+      .description(`${enabled ? "Enable" : "Disable"} a schedule`)
+      .argument("<id>", "schedule id (see hotpath schedule list)")
+      .action((id: string) =>
+        guarded(async () => {
+          await setScheduleEnabled(defaultStateDir, id, enabled);
+          console.log(`${name}d ${id}`);
+        }),
+      );
+  }
+
+  program
+    .command("runs")
+    .description("Show recent scheduled runs")
+    .option("--task <name>", "only this task")
+    .option("--limit <n>", "how many", parsePositiveInt, 20)
+    .action((options: { task?: string; limit: number }) =>
+      guarded(async () => {
+        const runs = await readRuns(defaultStateDir, options);
+        if (runs.length === 0) {
+          console.log("no runs yet");
+          return;
+        }
+        console.log(
+          table(
+            ["started", "task", "status", "time", "llm", "cost", "note"],
+            runs
+              .slice()
+              .reverse()
+              .map((r) => [
+                r.startedAt,
+                r.task,
+                r.status,
+                `${(r.durationMs / 1000).toFixed(1)}s`,
+                String(r.llmCalls),
+                `$${r.costUsd.toFixed(4)}`,
+                [
+                  r.sideEffectsMode === "dry-run" ? "dry-run" : "",
+                  r.fallback ? "agent fallback" : "",
+                  r.error ?? "",
+                ]
+                  .filter(Boolean)
+                  .join("; ")
+                  .slice(0, 80),
+              ]),
+          ),
+        );
+      }),
+    );
+
+  program
+    .command("stats")
+    .description("Runs, success rate, cost and estimated savings per task")
+    .option("--since <window>", "time window: 90m, 12h, 30d, 2w", "30d")
+    .action((options: { since: string }) =>
+      guarded(async () => {
+        const since = parseSince(options.since, new Date());
+        const runs = await readRuns(defaultStateDir, { since });
+        const tasks = [...new Set(runs.map((r) => r.task))];
+        const stats = computeStats(runs, await loadBaselines(tasks));
+        console.log(formatStats(stats, options.since));
+      }),
+    );
+}
+
+function addDaemonCommands(program: Command): void {
+  const daemon = program
+    .command("daemon")
+    .description("Run due schedules in the foreground (Ctrl+C to stop)")
+    .action(() =>
+      guarded(async () => {
+        const handle = await startDaemon({
+          stateDir: defaultStateDir,
+          runner: runtimeRunner,
+        });
+        let signals = 0;
+        const onSignal = () => {
+          signals++;
+          if (signals > 1) process.exit(130); // second Ctrl+C: don't wait
+          console.log("stopping… (Ctrl+C again to force)");
+          void handle.stop();
+        };
+        process.on("SIGINT", onSignal);
+        process.on("SIGTERM", onSignal);
+        await handle.done;
+        process.exit(0);
+      }),
+    );
+  void daemon;
+
+  program
+    .command("run-due")
+    .description(
+      "Run the schedules that are due now, then exit (for OS schedulers and CI)",
+    )
+    .requiredOption("--once", "run once and exit (the only mode)")
+    .action(() =>
+      guarded(() =>
+        runDueOnce({ stateDir: defaultStateDir, runner: runtimeRunner }),
+      ),
+    );
 }
 
 const stateDir = path.join(repoRoot, ".hotpath");

@@ -29,6 +29,7 @@
     "hotpath-compiler": "workspace:*",
     "hotpath-recorder": "workspace:*",
     "hotpath-runtime": "workspace:*",
+    "hotpath-scheduler": "workspace:^",
     "hotpath-viewer": "workspace:*",
     "json5": "^2.2.3"
   },
