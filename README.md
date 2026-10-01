@@ -76,35 +76,49 @@ flowchart LR
 ```
 
 1. **Record.** `hotpath record` is an MCP stdio proxy: every tool call the agent makes (arguments, result, timing) is written to a JSONL trace.
-2. **Compile.** A deterministic compiler (no API key needed) turns the trace into a workflow: tool calls become `tool` steps, values that change between runs (like a date) become `{{inputs.*}}`, data passed between steps becomes `{{steps.*.result}}`, and text the agent wrote becomes an `llm` step. Each step gets a guard (a JSON schema inferred from the recorded result, or non-empty / max-length for LLM output).
+2. **Compile.** A deterministic compiler (no API key needed) turns the trace into a workflow: tool calls become `tool` steps, values that change between runs (like a date) become `{{inputs.*}}`, data passed between steps becomes `{{steps.*.result}}`, and text the agent wrote becomes an `llm` step. Each step gets a guard: a JSON schema inferred from the recorded result for tool steps; for LLM steps, non-empty / max-length plus a **grounding guard**: the compiler records which values from earlier results the example output mentions, and at run time the output must mention what those same fields hold _now_. If something is missing, the step is retried once with the missing items listed, and if it is still missing the guard fails like any other drift.
 3. **Run.** The runtime executes the steps in order against the real MCP server. Only `llm` steps call a model, and they use the cheap one.
-4. **Drift → recompile.** If a guard fails, the runtime stops, runs the agent once, backs up the old workflow as `workflows/<task>.<timestamp>.bak.json`, and recompiles from the fresh trace. It never falls back after a side-effecting step has already run, so a message can't be sent twice.
+4. **Drift → recompile.** If a guard fails, the runtime stops, runs the agent once, backs up the old workflow as `workflows/<task>.<timestamp>.bak.json`, and recompiles from the fresh trace. It never falls back after a side-effecting step has already run, so a message can't be sent twice. If the recompiled workflow would have **lost read-only tool steps** the old one had (the agent skipped a data source this time), it warns and keeps the old workflow unless you pass `--accept-recompile`.
 
 ## Benchmark
 
-Produced by `pnpm bench` (real API calls) on **2026-10-01**, all on Groq: `qwen/qwen3.8-27b` as the agent, `openai/gpt-oss-20b` (with `HOTPATH_CHEAP_REASONING=low`) as the workflow's cheap model. This is the unedited output of a single run, for the two demo tasks (`morning-brief`: 4 tool calls and 1 LLM step; `weekly-report`: 13 tool calls and 2 LLM steps):
+Produced by `pnpm bench` (real API calls) on **2026-10-01**, all on Groq: `qwen/qwen3.8-27b` as the agent and `openai/gpt-oss-20b` (with `HOTPATH_CHEAP_REASONING=low`) as the workflow's cheap model. Two demo tasks: `morning-brief` (4 tool calls, 1 LLM step) and `weekly-report` (13 tool calls, 2 LLM steps). This is the unedited output of one complete run:
 
 ```
-scenario                 agent time / cost  hotpath time / cost     startup + tools + llm  speedup  cheaper  match  fallback
-morning-brief/same-data  15.4s / $0.0194    0.8s / $0.0016          218ms + 35ms + 509ms   20x      12x      ✅      no
-morning-brief/new-data   34.9s / $0.0187    0.8s / $0.0014          217ms + 36ms + 585ms   41x      13x      ✅      no
-morning-brief/drift      -                  38.6s / $0.0191 → 0.8s  218ms + 38ms + 545ms   -        -        ✅      yes → recompiled
-weekly-report/same-data  75.7s / $0.0444    1.4s / $0.0041          216ms + 55ms + 1.1s    55x      11x      ✅      no
-weekly-report/new-data   78.7s / $0.0468    1.1s / $0.0039          218ms + 57ms + 860ms   69x      12x      ✅      no
-weekly-report/drift      -                  70.5s / $0.0539 → 1.3s  247ms + 67ms + 1.0s    -        -        ✅      yes → recompiled
+scenario                 agent time / cost                        hotpath time / cost                             startup + tools + llm  speedup  cheaper  match  fallback
+morning-brief/same-data  3.7s / $0.0206                           0.9s / $0.0021                                  224ms + 37ms + 612ms   4x       10x      ✅      no
+morning-brief/new-data   3.3s / $0.0175 (+15.0s rate-limit wait)  1.0s / $0.0018                                  241ms + 37ms + 746ms   3x       10x      ✅      no
+morning-brief/drift      -                                        4.4s / $0.0175 (+28.0s rate-limit wait) → 0.7s  216ms + 39ms + 416ms   -        -        ✅      yes → recompiled
+weekly-report/same-data  6.7s / $0.0503 (+61.0s rate-limit wait)  1.6s / $0.0039                                  219ms + 54ms + 1.3s    4x       13x      ✅      no
+weekly-report/new-data   6.7s / $0.0438 (+74.0s rate-limit wait)  1.3s / $0.0038                                  216ms + 54ms + 986ms   5x       12x      ✅      no
+weekly-report/drift      -                                        7.6s / $0.0499 (+54.0s rate-limit wait) → 1.1s  222ms + 55ms + 781ms   -        -        ✅      yes → recompiled
 ```
 
+- **Times exclude rate-limit waiting.** Groq's free tier throttles tokens per minute, and the client retries when it is hit. That waiting is measured (`rateLimitWaitMs`) and shown beside the agent's time instead of being counted in it, and the speedup is computed from the time _without_ it. The waiting here was large (up to 74 s on one agent run), so earlier numbers that included it overstated the gap: without the waiting, the agent takes about 3–4 s for `morning-brief` and about 6.7 s for `weekly-report` on this provider, and the workflow is about **3–5x faster**.
+- **startup + tools + llm** is where the workflow's time goes: starting and connecting to the MCP server (~220 ms), all the deterministic tool steps together (37–55 ms in total), and the LLM steps. The deterministic part is nearly instant; the model call is what takes the time.
 - **same-data**: the workflow made the same tool calls as the recorded trace (ignoring the LLM-written text) and the output mentioned everything it should.
-- **new-data**: the same workflow on different data (different emails, different repositories and incident), with no agent involved and no recompilation.
+- **new-data**: the same workflow on different data, with no agent involved and no recompilation.
 - **drift**: a field was renamed (`subject` → `title` for morning-brief, repo `name` → `slug` for weekly-report). The guard caught it at step `s1`, the agent ran once, the workflow was recompiled, and the next run passed with no fallback. The first time is the fallback run including the agent, the time after the arrow is the following clean run.
-- **startup + tools + llm** is where the workflow's time goes: starting and connecting to the MCP server, all the deterministic tool steps together, and the LLM steps. The tool steps take roughly 35–70 ms in total; almost all of the rest is the one model call per message.
+- Costs are computed from the per-token prices configured in `.env` (`PRICE_*`), not from your provider's invoice. This run used the defaults in `.env.example` (agent $3 / $15, cheap $0.95 / $4 per million input / output tokens), which are placeholders rather than Groq's actual prices, so the "cheaper" ratio is only as meaningful as those prices.
 
-Read these numbers with care:
+### Pass rates
 
-- It is one run per scenario on small fake tasks, not a statistical benchmark, and the LLM parts are not deterministic. During development, individual scenarios occasionally failed on a missing mention (the cheap model leaving out an item); this table is one complete passing run, not an average.
-- **The agent timings are noisy and partly inflated by rate limits.** Groq's free tier limits tokens per minute, and the client retries when it is hit, so some agent runs include waiting. A standalone `morning-brief` agent run with the same model took about 3.4 s, versus 15–35 s here, so the `morning-brief` speedups (20x, 41x) overstate the real gap. The `weekly-report` agent runs (about 75 s for 13 sequential tool calls) are mostly genuine model latency but we cannot separate out any rate-limit waiting.
-- Costs are computed from the per-token prices configured in `.env` (`PRICE_*`), not from your provider's invoice. This run used the defaults in `.env.example` (agent $3 / $15, cheap $0.95 / $4 per million input / output tokens), which are placeholders rather than Groq's actual prices. Set your own to get real dollar figures; the "cheaper" ratio is only as meaningful as those prices.
-- The first run of the day used `openai/gpt-oss-120b` as the agent, but it hit Groq's daily token limit before the benchmark could finish, so the agent was switched to `qwen/qwen3.8-27b` for this run.
+The LLM parts are not deterministic, so a single run proves little. `pnpm bench --runs N` repeats everything and reports per-scenario pass rates. Over the **two complete runs** I could do on the final code (the same day, same models):
+
+| scenario                | passed |
+| ----------------------- | ------ |
+| morning-brief/same-data | 2/2    |
+| morning-brief/new-data  | 2/2    |
+| morning-brief/drift     | 2/2    |
+| weekly-report/same-data | 2/2    |
+| weekly-report/new-data  | 2/2    |
+| weekly-report/drift     | 1/1    |
+
+That is a very small sample (2 runs), not a statistical claim, and it is **not the 3 runs I intended**:
+
+- In the second run, the `weekly-report/drift` agent call was refused by Groq's **daily token limit** (200,000 tokens/day on this account); a full benchmark spends roughly 85,000 agent tokens, so the limit stopped a third run. That scenario is excluded from the table (1/1) instead of being counted as either a pass or a failure.
+- Earlier runs today used code from before the grounding guard and the recompile check, and some missed an item in the output (the cheap model leaving something out). They are not included here. The grounding guard (below) exists to catch exactly that.
+- To get real pass rates, run `pnpm bench --runs 3` yourself (with an agent model that is not rate limited, or after the daily limit resets); `--skip-agent-reruns` saves the comparison agent run in runs 2..N.
 
 ## CLI reference
 
@@ -113,9 +127,9 @@ Read these numbers with care:
 | `hotpath record --task <name> -- <server command…>`                   | Run an MCP stdio proxy that records an agent's tool calls to `traces/<task>/<timestamp>.jsonl`. |
 | `hotpath compile <task> [--trace <file>]`                             | Compile a trace (default: the latest) into `workflows/<task>.json`.                             |
 | `hotpath show <task>`                                                 | Print a workflow as a readable list of steps.                                                   |
-| `hotpath run <task> [--input key=value…] [--dry-run] [--no-fallback]` | Run a workflow. `--dry-run` skips side-effect steps; `--no-fallback` exits non-zero on drift.   |
+| `hotpath run <task> [--input key=value…] [--dry-run] [--no-fallback] [--accept-recompile]` | Run a workflow. `--dry-run` skips side-effect steps; `--no-fallback` exits non-zero on drift; `--accept-recompile` replaces the workflow after a fallback even if the recompile lost read-only steps. |
 | `hotpath view <task> [--port <port>] [--no-open]`                     | Open the workflow graph viewer (Vite + React Flow) on localhost.                                |
-| `pnpm bench [--skip-agent]`                                           | Run the end-to-end benchmark against a real LLM.                                                |
+| `pnpm bench [--runs N] [--skip-agent] [--skip-agent-reruns] [--task <name>]` | Run the end-to-end benchmark against a real LLM. `--runs N` repeats it and reports per-scenario pass rates. |
 
 In this repo the CLI is run as `pnpm hotpath <command>`. Tasks and their agent/server commands are defined in `hotpath.config.json`.
 
