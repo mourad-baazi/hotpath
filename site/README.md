@@ -37,8 +37,9 @@ the stats, the benchmark rows, features and FAQ. Keep numbers in sync with
 
 ## Waitlist (M26)
 
-The form POSTs JSON `{ "email", "automate" }` to `PUBLIC_WAITLIST_ENDPOINT`, set at build
-time. Without it, the form tells visitors the waitlist isn't open yet.
+The form POSTs JSON `{ "email", "automate" }` to the Formspree form in `src/content.ts`
+(`WAITLIST_ENDPOINT`). Set `PUBLIC_WAITLIST_ENDPOINT` at build time to use another
+backend. Signups show up in the Formspree dashboard.
 
 **Formspree (simplest):** create a form at formspree.io, copy its endpoint
 (`https://formspree.io/f/xxxxxxx`) and set it as `PUBLIC_WAITLIST_ENDPOINT` in your host's

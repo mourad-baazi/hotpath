@@ -3,6 +3,8 @@
 export const GITHUB_URL = "https://github.com/mourad-baazi/hotpath";
 export const BENCHMARK_URL = `${GITHUB_URL}/blob/main/docs/BENCHMARK.md`;
 export const DOCS_URL = `${GITHUB_URL}#readme`;
+/** Hotpath Cloud waitlist (Formspree). */
+export const WAITLIST_ENDPOINT = "https://formspree.io/f/mljdkzkd";
 
 export const INSTALL =
   "git clone https://github.com/mourad-baazi/hotpath && cd hotpath && pnpm install";

@@ -1,10 +1,12 @@
 ---
 import Icon from "./Icon.astro";
-import { GITHUB_URL } from "../content";
+import { GITHUB_URL, WAITLIST_ENDPOINT } from "../content";
 
-// A hosted form backend (Formspree, Tally, a Cloudflare Worker…) that accepts a
-// JSON POST. Without one configured at build time the form says so honestly.
-const endpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT ?? "";
+
+// A hosted form backend that accepts a JSON POST (Formspree by default; the
+// endpoint is public by design, it ends up in the page either way).
+// PUBLIC_WAITLIST_ENDPOINT at build time overrides it.
+const endpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT || WAITLIST_ENDPOINT;
 const perks = [
   { icon: "Cloud", text: "Your schedules run 24/7, laptop closed" },
   { icon: "LayoutDashboard", text: "Dashboard: runs, costs and savings at a glance" },
