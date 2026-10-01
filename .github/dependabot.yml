@@ -1,0 +1,14 @@
+version: 2
+
+updates:
+  # npm packages for the whole pnpm workspace (root lockfile)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+
+  # the pinned actions in .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -59,12 +59,15 @@ export async function startViewer(
   return { url, close: () => server.close() };
 }
 
+// Best effort (the URL is printed anyway). An argv, never a shell string.
 function openBrowser(url: string): void {
-  const command =
+  const [command, ...args] =
     process.platform === "win32"
-      ? `start "" "${url}"`
+      ? ["rundll32", "url.dll,FileProtocolHandler", url]
       : process.platform === "darwin"
-        ? `open "${url}"`
-        : `xdg-open "${url}"`;
-  exec(command, () => undefined); // best effort: the URL is printed anyway
+        ? ["open", url]
+        : ["xdg-open", url];
+  const child = spawn(command, args, { stdio: "ignore", detached: true });
+  child.on("error", () => undefined); // no browser available
+  child.unref();
 }

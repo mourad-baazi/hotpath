@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { Ajv } from "ajv";
-import { spawn } from "node:child_process";
+import crossSpawn from "cross-spawn";
 import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -205,24 +205,66 @@ async function runConfiguredAgent(request: AgentRequest): Promise<void> {
       `task "${request.task}" not found in hotpath.config.json — add it, or pass --no-fallback`,
     );
   }
-  const flags = Object.entries(request.inputs)
-    .map(([name, value]) => `--${name} ${shellQuote(value)}`)
-    .join(" ");
-  const command = `${entry.agent} --task ${request.task} ${flags}`;
+  await runAgentCommand(entry.agent, request);
+}
+
+// Input names become `--<name>` flags, so they are restricted to a safe shape.
+const INPUT_NAME_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+
+/**
+ * argv for the fallback agent: the configured command's words, then
+ * `--task <task>` and `--<input> <value>` for every input, each as its own
+ * item. Nothing is ever joined into a string a shell would parse, so a value
+ * such as `$(rm -rf ~)` reaches the agent as that literal text.
+ */
+export function buildAgentArgv(
+  agentCommand: string,
+  request: AgentRequest,
+): string[] {
+  const argv = splitCommand(agentCommand);
+  if (argv.length === 0) {
+    throw new Error(
+      `the "agent" command for task "${request.task}" in hotpath.config.json is empty — set it, or pass --no-fallback`,
+    );
+  }
+  argv.push("--task", request.task);
+  for (const [name, value] of Object.entries(request.inputs)) {
+    if (!INPUT_NAME_RE.test(name)) {
+      throw new Error(
+        `invalid input name ${JSON.stringify(name)} — input names may only contain letters, digits, "_" and "-", and must start with a letter or "_" (it becomes the flag --${name})`,
+      );
+    }
+    argv.push(`--${name}`, value);
+  }
+  return argv;
+}
+
+/** Runs the agent with an argv (cross-spawn handles Windows shims), never via a shell. */
+export async function runAgentCommand(
+  agentCommand: string,
+  request: AgentRequest,
+): Promise<void> {
+  const [file, ...args] = buildAgentArgv(agentCommand, request);
+  const printable = [file, ...args].join(" ");
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, {
-      shell: true,
+    const child = crossSpawn(file, args, {
       cwd: repoRoot,
       stdio: "inherit",
       env: process.env,
     });
-    child.on("error", reject);
+    child.on("error", (err) =>
+      reject(
+        new Error(
+          `could not start the agent (${printable}): ${err.message} — check the "agent" command in hotpath.config.json`,
+        ),
+      ),
+    );
     child.on("exit", (code) =>
       code === 0
         ? resolve()
         : reject(
             new Error(
-              `agent command failed (exit ${code}): ${command} — check the agent output above`,
+              `agent command failed (exit ${code}): ${printable} — check the agent output above`,
             ),
           ),
     );
@@ -252,12 +294,6 @@ async function readAgentRun(
   }
 }
 
-function shellQuote(value: string): string {
-  return /^[\w.:@/=-]+$/.test(value)
-    ? value
-    : `"${value.replace(/"/g, '\\"')}"`;
-}
-
 export async function runWorkflow(
   workflow: Workflow,
   options: RunOptions,
@@ -284,7 +320,7 @@ export async function runWorkflow(
     args: serverArgv.slice(1),
     cwd: repoRoot,
     env: { ...process.env } as Record<string, string>,
-    ...(process.platform === "win32" ? { shell: true } : {}),
+    // no shell: the MCP SDK starts the server with cross-spawn (handles .cmd shims)
   });
   const client = new Client({ name: "hotpath-runtime", version: "0.1.0" });
   await client.connect(transport);

@@ -38,8 +38,8 @@ export async function runRecorder(
     command,
     args,
     env: { ...process.env } as Record<string, string>,
-    // pnpm/demo-tools are .cmd shims on Windows
-    ...(process.platform === "win32" ? { shell: true } : {}),
+    // no shell: the MCP SDK starts the server with cross-spawn, which also
+    // handles .cmd shims (pnpm, npx) on Windows
   });
   const upstream = new Client({ name: "hotpath-recorder", version: "0.1.0" });
   await upstream.connect(transport);
