@@ -6,13 +6,13 @@ editable workflow, and re-runs the workflow with an LLM only at the steps that n
 judgment. If a step's output no longer looks right (drift), it falls back to the
 agent, records a new trace and recompiles.
 
-The full product and technical spec is in **`SPEC.md`**. Read it before starting any work.
+The full product and technical spec is in **`docs/SPEC.md`**. Read it before starting any work.
 
 ## How to work
 
-1. **One milestone at a time.** Milestones are in `SPEC.md` §6. Do not start milestone
+1. **One milestone at a time.** Milestones are in `docs/SPEC.md` §6. Do not start milestone
    N+1 until every acceptance check of milestone N passes. When you finish a milestone,
-   tick it in `PROGRESS.md` (create it if missing) with a one-line note.
+   tick it in `docs/PROGRESS.md` (create it if missing) with a one-line note.
 2. **Tests first.** For each milestone, write the failing vitest tests from its
    acceptance checks, then write the code that makes them pass.
 3. **Run the checks before saying you're done:**
@@ -32,7 +32,7 @@ The full product and technical spec is in **`SPEC.md`**. Read it before starting
 - Run TS directly in dev with **tsx**.
 - MCP: **`@modelcontextprotocol/sdk`** (stdio transport). Validation: **zod** + **ajv**.
 - LLM calls: the **`openai`** npm SDK pointed at Moonshot's OpenAI-compatible API
-  (see `SPEC.md` §4). All LLM access goes through `packages/shared/src/llm.ts`; never
+  (see `docs/SPEC.md` §4). All LLM access goes through `packages/shared/src/llm.ts`; never
   call the API from anywhere else.
 - CLI: **commander**. Viewer (milestone 8): **Vite + React + @xyflow/react**.
 - No other runtime dependencies without a one-line justification in the PR/commit.

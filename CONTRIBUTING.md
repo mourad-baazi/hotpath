@@ -37,7 +37,7 @@ you don't need it for most changes.
 
 ## Pull requests: one milestone per PR
 
-- Keep each PR to one milestone or one focused change (see `SPEC.md` §6 and `PROGRESS.md`).
+- Keep each PR to one milestone or one focused change (see [`docs/SPEC.md`](docs/SPEC.md) §6 and [`docs/PROGRESS.md`](docs/PROGRESS.md)).
 - **Tests first:** write the failing vitest tests from the acceptance checks, then the code.
 - Don't refactor code from earlier milestones unless your change needs it.
 - Don't skip or delete a test to get green.

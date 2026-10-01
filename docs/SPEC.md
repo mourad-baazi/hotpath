@@ -36,7 +36,8 @@ generalizes to new data, and self-heals on drift (§7).
 
 ```
 hotpath/
-  AGENTS.md  SPEC.md  PROGRESS.md  README.md
+  AGENTS.md  README.md  CONTRIBUTING.md  LICENSE
+  docs/        # SPEC.md  PROGRESS.md  BENCHMARK.md
   package.json  pnpm-workspace.yaml  tsconfig.base.json  .env.example  .gitignore
   hotpath.config.json          # task → agent/server commands (see §4)
   packages/

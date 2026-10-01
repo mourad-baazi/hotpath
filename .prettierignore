@@ -6,6 +6,5 @@ out
 pnpm-lock.yaml
 # pre-existing docs, left as-is
 AGENTS.md
-SPEC.md
-README.md
-PROGRESS.md
+docs/SPEC.md
+docs/PROGRESS.md
