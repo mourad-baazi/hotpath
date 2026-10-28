@@ -24,7 +24,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "devDependencies": {
-    "vitest": "^2.1.8"
+    "vitest": "^5.0.2"
   },
   "dependencies": {
     "hotpath-compiler": "workspace:*",
