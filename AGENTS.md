@@ -7,32 +7,12 @@ workflow, and replays it with an LLM only at judgment steps; on drift it falls b
 the agent and recompiles. See `README.md` for usage and `docs/SPEC.md` for the data
 formats and the MVP design.
 
-## Where the work is
-
-- **Roadmap and milestone specs (M10+):** start at `ship/README.md`, then
-  `ship/ROADMAP.md` and the phase spec in `ship/phases/`.
-- **Design system for any UI:** `ship/design/DESIGN.md`.
-- **Skills:** `.agents/skills/<name>/SKILL.md`. Before working, read the skill that fits:
-
-| Task                                    | Skill                    |
-| --------------------------------------- | ------------------------ |
-| Any milestone from the roadmap          | `hotpath-milestone`      |
-| Planning a non-trivial change           | `hotpath-planning`       |
-| Writing features or fixing bugs         | `hotpath-tdd`            |
-| Before saying anything is done          | `hotpath-verify`         |
-| Failing tests, errors, red CI           | `hotpath-debugging`      |
-| Processes, configs, inputs, secrets, CI | `hotpath-security`       |
-| Website, dashboard, viewer, visuals     | `hotpath-frontend`       |
-| Research milestones, external tools     | `hotpath-research`       |
-| Releases                                | `hotpath-release`        |
-| README, docs, posts, announcements      | `hotpath-launch-writing` |
-
 ## Before you finish any change
 
 - Run `pnpm -r build && pnpm -r test && pnpm lint`. All must pass.
 - Never skip, delete or weaken a test to get green.
 - Add or update tests for every behavior change (vitest, tests first when practical).
-- One milestone per session; tick it in `ship/ROADMAP.md` when its acceptance checks pass.
+- One milestone per change; tick it in `docs/PROGRESS.md` when its acceptance checks pass.
 
 ## Project rules
 

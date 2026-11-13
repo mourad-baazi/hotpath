@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// Scheduler state (ship/phases/P2-scheduler.md), all under .hotpath/.
+// Scheduler state (see docs/SCHEDULER.md), all under .hotpath/.
 
 export const scheduleSchema = z.object({
   id: z.string(),
