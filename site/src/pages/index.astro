@@ -1,18 +1,519 @@
 ---
-import Cloud from "../components/Cloud.astro";
-import Footer from "../components/Footer.astro";
-import Hero from "../components/Hero.astro";
-import Nav from "../components/Nav.astro";
-import Sections from "../components/Sections.astro";
+import GithubMark from "../components/GithubMark.astro";
+import Icon from "../components/Icon.astro";
+import PixelMark from "../components/PixelMark.astro";
 import Base from "../layouts/Base.astro";
+import { BENCHMARK_URL, GITHUB_URL, WAITLIST_ENDPOINT } from "../content";
+import "../styles/home.css";
+
+const endpoint = import.meta.env.PUBLIC_WAITLIST_ENDPOINT || WAITLIST_ENDPOINT;
+
+// the engine's own trace, shortened: failed calls disappear, one step is AI
+const trace = [
+  { t: "get_emails", bad: true },
+  { t: "get_emails" },
+  { t: "get_calendar", bad: true },
+  { t: "get_calendar" },
+  { t: "get_weather", bad: true },
+  { t: "get_weather" },
+  { t: "AI step", model: true },
+  { t: "send_message", bad: true },
+  { t: "send_message ⚡", fx: true },
+] as const;
+
+const order = [
+  ["1", "Hotpath Private", "now", 1],
+  ["2", "The engine, inside it", "with the first repeating task", 0.62],
+  ["3", "Tuned models", "when a customer asks and pays", 0.4],
+  ["4", "Hotpath Cloud", "after 5 Private customers want the same thing", 0.24],
+  ["5", "Our own models", "long term", 0.12],
+] as const;
+
+const steps = [
+  ["Install", "We set up the model, the chat and the document search on hosting you choose. We aim for about a week."],
+  ["Connect", "Your files become searchable, and every answer shows the document it came from."],
+  ["Automate", "One task your team repeats is recorded once, then runs as a plain workflow."],
+] as const;
 ---
 
-<Base>
-  <Nav />
+<Base
+  title="Hotpath: private AI for businesses"
+  description="Hotpath sets up a private AI assistant for your business: an open model on EU hosting or your own machine, connected to your documents. Built on an open-source workflow engine."
+>
+  <header class="mast">
+    <nav class="shell mast-row" aria-label="Main">
+      <a href="/" aria-label="Hotpath home" class="brand"><PixelMark size={24} /><span>hotpath</span></a>
+      <div class="mast-links">
+        <a href="#products">Products</a>
+        <a href="#how">How it works</a>
+        <a href="#promise">Promise</a>
+        <a href="/engine">Engine</a>
+      </div>
+      <div class="mast-end">
+        <button type="button" id="theme-toggle" class="icon-btn" aria-label="Toggle dark mode">
+          <span class="mode-light"><Icon name="Moon" size={17} /></span>
+          <span class="mode-dark"><Icon name="Sun" size={17} /></span>
+        </button>
+        <a href={GITHUB_URL} class="icon-btn" aria-label="Hotpath on GitHub"><GithubMark size={17} /></a>
+        <a href="#contact" class="cta cta-hot cta-small">Talk to us</a>
+      </div>
+    </nav>
+  </header>
+
   <main id="main">
-    <Hero />
-    <Sections />
-    <Cloud />
+    <section class="hero">
+      <div class="hero-wash" aria-hidden="true"></div>
+      <div class="shell hero-grid" id="hero">
+        <div class="hero-copy">
+          <p class="chip"><span class="pulse"></span>Early access · looking for first pilots</p>
+          <h1>
+            <span class="l">Your own AI,</span>
+            <span class="l">where your</span>
+            <span class="l">data <em>stays.</em></span>
+          </h1>
+          <p class="lede">
+            We set up open-weight models on EU hosting or your own machine, connected to your documents. Your
+            repeating tasks run on an open-source engine that calls a model only where judgment is needed.
+          </p>
+          <div class="hero-cta">
+            <a href="#contact" class="cta cta-hot">Talk to us <Icon name="ArrowRight" size={14} /></a>
+            <a href="#products" class="cta cta-cold">See what we build</a>
+          </div>
+        </div>
+        <div class="stage" aria-hidden="true"><canvas id="heat"></canvas></div>
+      </div>
+      <div class="hero-rule" aria-hidden="true"></div>
+    </section>
+
+    <section id="products" class="sec shell">
+      <div class="eyebrow-row"><p class="kicker">Products</p><p class="kicker">One at a time</p></div>
+      <h2>Cold code. <em>Hot</em> only where it counts.</h2>
+
+      <div class="bento">
+        <article class="tile b-private">
+          <p class="tag"><i></i>Looking for first pilots</p>
+          <h3>Hotpath Private</h3>
+          <p>
+            An AI assistant that knows your files and keeps them where you put them: an open model on EU hosting or on
+            your own machine, set up for you at a fixed price.
+          </p>
+          <div class="boundary">
+            <span class="blabel">Your hosting · EU server or your machine</span>
+            <div class="flow">
+              <div class="fnode"><b>Your documents</b><span>folders, PDFs</span></div>
+              <i class="wire"></i>
+              <div class="fnode"><b>Search index</b><span>finds the passage</span></div>
+              <i class="wire"></i>
+              <div class="fnode ai"><b>Open model</b><span>named, not hidden</span></div>
+              <i class="wire"></i>
+              <div class="fnode"><b>Answer</b><span>with its source</span></div>
+            </div>
+          </div>
+          <p class="outside"><span class="x">×</span>Nothing leaves this box unless you connect it.</p>
+          <a href="#contact" class="tile-link">Book a conversation <Icon name="ArrowRight" size={13} /></a>
+        </article>
+
+        <article class="tile b-engine">
+          <p class="tag"><i></i>Open source</p>
+          <h3>The engine underneath</h3>
+          <p>Record an agent once. Its mistakes drop out, and the task replays as a workflow with one AI step.</p>
+          <div id="trace" class="trace done" aria-label="Nine recorded tool calls become five workflow steps">
+            {
+              trace.map((c) => (
+                <span class={`tc${"bad" in c ? " bad" : ""}${"model" in c ? " model" : ""}${"fx" in c ? " fx" : ""}`}>
+                  {"bad" in c && "× "}
+                  {c.t}
+                </span>
+              ))
+            }
+          </div>
+          <p class="trace-note" id="trace-note">9 calls recorded → 5 steps kept</p>
+          <a href="/engine" class="tile-link">How the engine works <Icon name="ArrowRight" size={13} /></a>
+        </article>
+
+        <article class="tile b-num">
+          <p class="tag cool"><i></i>Measured on two demo tasks</p>
+          <h3>Same result, less spend</h3>
+          <div class="nums">
+            <div><b>3–5×</b><span>faster</span></div>
+            <div><b>~10×</b><span>cheaper</span></div>
+          </div>
+          <p class="fine">
+            Against the agent that recorded the task, on two demo tasks, at the prices we configured. Your numbers
+            will differ; that is why we measure them on your work.
+          </p>
+          <a href={BENCHMARK_URL} class="tile-link">Read the benchmark <Icon name="ArrowRight" size={13} /></a>
+        </article>
+
+        <article class="tile b-order">
+          <p class="tag cool"><i></i>The order we build in</p>
+          <h3>Hot to cold, one at a time</h3>
+          <div class="ramp">
+            {
+              order.map(([n, name, when, o]) => (
+                <div class="ramp-row">
+                  <span class="ramp-n">{n}</span>
+                  <div class="ramp-bar" style={`--o:${o}`}>
+                    <span>{name}</span>
+                    <small>{when}</small>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+          <p class="fine">The next product starts only when the one before it has paying users.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="how" class="sec shell">
+      <div class="eyebrow-row"><p class="kicker">How it works</p><p class="kicker">Hotpath Private</p></div>
+      <h2>A working assistant in about <em>a week.</em></h2>
+      <div class="steps">
+        {
+          steps.map(([t, d], i) => (
+            <div class="step">
+              <div class="num">0{i + 1}</div>
+              <h3>{t}</h3>
+              <p>{d}</p>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section id="promise" class="sec shell">
+      <div class="eyebrow-row"><p class="kicker">Promise</p><p class="kicker">Facts only</p></div>
+      <h2>We say what we can <em>show.</em></h2>
+      <div class="pair">
+        <div class="yes">
+          <h3>We will</h3>
+          <ul>
+            <li>Name the model we use and where it runs.</li>
+            <li>Give you a written note of where each kind of data sits and who can read it.</li>
+            <li>Test the assistant on your own documents before you pay.</li>
+            <li>Delete everything when you ask.</li>
+          </ul>
+        </div>
+        <div class="no">
+          <h3>We won't</h3>
+          <ul>
+            <li>Claim certifications or compliance we have not been audited for.</li>
+            <li>Say a small model matches the best frontier models.</li>
+            <li>Quote demo benchmark numbers as results on your work.</li>
+            <li>Send your data anywhere you did not choose.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact" class="shell">
+      <div class="contact">
+        <div class="contact-in">
+          <div style="position: relative">
+            <p class="kicker">Contact</p>
+            <h2>Tell us what you would not paste into a <em>public chatbot.</em></h2>
+          </div>
+          <form id="contact-form" data-endpoint={endpoint} novalidate>
+            <label for="c-email">Email</label>
+            <input id="c-email" name="email" type="email" required autocomplete="email" placeholder="you@company.com" class="field" />
+            <label for="c-msg">What would you use it for? <span>(optional)</span></label>
+            <textarea id="c-msg" name="message" rows="3" maxlength="500" class="field"></textarea>
+            <input type="text" name="company" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true" />
+            <button type="submit" class="cta cta-hot">Send <Icon name="ArrowRight" size={14} /></button>
+            <p class="status-line" role="status" aria-live="polite"></p>
+            <p class="fine">
+              Your message goes through Formspree to us. We use your email only to reply, and delete it when you ask.
+            </p>
+          </form>
+        </div>
+      </div>
+    </section>
   </main>
-  <Footer />
+
+  <footer class="foot">
+    <div class="shell foot-row">
+      <span>© 2026 Hotpath</span>
+      <nav aria-label="Footer">
+        <a href="/engine">Engine</a>
+        <a href={GITHUB_URL}>GitHub</a>
+        <a href={BENCHMARK_URL}>Benchmark</a>
+        <a href={`${GITHUB_URL}/blob/main/SECURITY.md`}>Security</a>
+        <a href={`${GITHUB_URL}/blob/main/LICENSE`}>Apache-2.0</a>
+      </nav>
+    </div>
+    <p class="wordmark" aria-hidden="true">hotpath</p>
+  </footer>
 </Base>
+
+<script>
+  // ── hero: a heat field. Cold dots; an agent's path glows through them,
+  // and the cursor leaves heat too. Static when motion is reduced. ──
+  const canvas = document.getElementById("heat") as HTMLCanvasElement | null;
+  const hero = document.getElementById("hero");
+  if (canvas && hero) {
+    const ctx = canvas.getContext("2d")!;
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const CELL = 22;
+    const LABELS = ["get_emails", "get_calendar", "get_weather", "AI step", "send_message", "✓ done"];
+    const AI = 3;
+    let w = 0, h = 0, cols = 0, rows = 0, dpr = 1;
+    let trail = new Float32Array(0);
+    let touch = new Float32Array(0);
+    let pts: { x: number; y: number }[] = [];
+    let reached = 0; // how many waypoints the walker has passed
+    let age: number[] = [];
+    let clock = 0, hold = 0, cycle = 0;
+    let pointer: { x: number; y: number } | null = null;
+    let colors = readColors();
+
+    function readColors() {
+      const s = getComputedStyle(document.documentElement);
+      const g = (n: string) => s.getPropertyValue(n).trim();
+      return {
+        cold: g("--cold"),
+        ramp: [g("--heat-1"), g("--heat-2"), g("--heat-3"), g("--heat-4"), g("--heat-5")],
+        ai: g("--ai"),
+        muted: g("--text-muted"),
+      };
+    }
+    // small seeded random so each lap differs but never jitters mid-lap
+    function rand(seed: number) {
+      const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+      return x - Math.floor(x);
+    }
+    function plan() {
+      const left = w > 700 ? 0.1 : 0.06;
+      pts = LABELS.map((_, i) => ({
+        x: w * (left + ((0.9 - left) * i) / (LABELS.length - 1)),
+        y: h * (0.2 + 0.6 * rand(cycle * 7 + i + 1)),
+      }));
+      reached = 0;
+      age = LABELS.map(() => 0);
+      clock = 0;
+      hold = 0;
+    }
+    function resize() {
+      const r = canvas!.getBoundingClientRect();
+      dpr = Math.min(devicePixelRatio || 1, 2);
+      w = r.width;
+      h = r.height;
+      canvas!.width = Math.round(w * dpr);
+      canvas!.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cols = Math.ceil(w / CELL) + 1;
+      rows = Math.ceil(h / CELL) + 1;
+      trail = new Float32Array(cols * rows);
+      touch = new Float32Array(cols * rows);
+      plan();
+    }
+    function splat(buf: Float32Array, x: number, y: number, radius: number, amount: number) {
+      const cx = x / CELL, cy = y / CELL;
+      for (let j = Math.max(0, Math.floor(cy - radius)); j <= Math.min(rows - 1, Math.ceil(cy + radius)); j++) {
+        for (let i = Math.max(0, Math.floor(cx - radius)); i <= Math.min(cols - 1, Math.ceil(cx + radius)); i++) {
+          const d = Math.hypot(i - cx, j - cy) / radius;
+          if (d < 1) buf[j * cols + i] = Math.min(1.4, buf[j * cols + i] + amount * (1 - d) ** 2);
+        }
+      }
+    }
+    // the walker moves node to node, easing in and out, one second per hop
+    function walker() {
+      const seg = Math.min(clock, LABELS.length - 1 - 1e-6);
+      const i = Math.floor(seg);
+      const f = seg - i;
+      const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+      const a = pts[i], b = pts[Math.min(i + 1, pts.length - 1)];
+      return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, i };
+    }
+    function step(dt: number) {
+      const decayTrail = Math.pow(hold > 0 ? 0.45 : 0.75, dt);
+      const decayTouch = Math.pow(0.04, dt);
+      for (let k = 0; k < trail.length; k++) {
+        trail[k] *= decayTrail;
+        touch[k] *= decayTouch;
+      }
+      if (clock < LABELS.length - 1) {
+        clock += dt * 0.95;
+        const p = walker();
+        splat(trail, p.x, p.y, 1.9, 0.5);
+        while (reached < Math.min(Math.floor(clock) + 1, LABELS.length)) {
+          splat(trail, pts[reached].x, pts[reached].y, 2.6, 1.2);
+          age[reached] = 0.001;
+          reached++;
+        }
+        if (clock >= LABELS.length - 1) hold = 3.2;
+      } else if (hold > 0) {
+        hold -= dt;
+        if (hold <= 0) {
+          cycle++;
+          plan();
+        }
+      }
+      for (let i = 0; i < age.length; i++) if (age[i] > 0) age[i] += dt;
+      if (pointer) splat(touch, pointer.x, pointer.y, 3.4, 0.5);
+    }
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const t = Math.max(trail[j * cols + i], touch[j * cols + i]);
+          const x = i * CELL, y = j * CELL;
+          if (t < 0.04) {
+            ctx.fillStyle = colors.cold;
+            ctx.globalAlpha = 0.55;
+            ctx.fillRect(x, y, 1.6, 1.6);
+          } else {
+            const idx = Math.min(4, Math.floor(Math.min(t, 1.2) * 3.4));
+            const s = 2 + Math.min(t, 1.2) * CELL * 0.5;
+            ctx.fillStyle = colors.ramp[idx];
+            ctx.globalAlpha = Math.min(1, 0.25 + t);
+            ctx.fillRect(x - s / 2 + 1, y - s / 2 + 1, s, s);
+          }
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.font = "10.5px 'Martian Mono Variable', ui-monospace, monospace";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i < pts.length; i++) {
+        if (!age[i]) continue;
+        const fade = hold > 0 ? Math.min(1, hold / 1.2) : 1;
+        ctx.globalAlpha = Math.min(1, age[i] * 3) * fade;
+        const isAi = i === AI;
+        const label = LABELS[i];
+        const tw = ctx.measureText(label).width;
+        const lx = Math.min(pts[i].x + 16, w - tw - 20);
+        const ly = pts[i].y - 18;
+        ctx.fillStyle = isAi ? colors.ai : colors.muted;
+        ctx.fillText(label, lx, ly);
+        ctx.strokeStyle = isAi ? colors.ai : colors.ramp[3];
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(pts[i].x, pts[i].y, 6 + Math.min(age[i], 1.2) * 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    let raf = 0, last = 0, visible = true;
+    function frame(now: number) {
+      raf = 0;
+      if (!visible) return;
+      const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+      last = now;
+      step(dt);
+      draw();
+      raf = requestAnimationFrame(frame);
+    }
+    function start() {
+      if (!raf && visible && !reduce) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    }
+
+    resize();
+    if (reduce) {
+      // a still picture of one complete lap
+      for (let n = 0; n < 420 && clock < LABELS.length - 1; n++) step(0.016);
+      draw();
+    } else {
+      start();
+    }
+    new ResizeObserver(() => {
+      resize();
+      if (reduce) {
+        for (let n = 0; n < 420 && clock < LABELS.length - 1; n++) step(0.016);
+        draw();
+      }
+    }).observe(canvas);
+    new IntersectionObserver((e) => {
+      visible = e[0].isIntersecting;
+      if (visible) start();
+    }).observe(hero);
+    hero.addEventListener("pointermove", (ev) => {
+      const r = canvas.getBoundingClientRect();
+      pointer = { x: ev.clientX - r.left, y: ev.clientY - r.top };
+    });
+    hero.addEventListener("pointerleave", () => (pointer = null));
+    const refresh = () => (colors = readColors());
+    new MutationObserver(refresh).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refresh);
+  }
+
+  // ── engine tile: calls appear, the failed ones fall away, five steps remain ──
+  const traceEl = document.getElementById("trace");
+  const note = document.getElementById("trace-note");
+  if (traceEl && note && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    let timer = 0;
+    const lap = () => {
+      traceEl.classList.remove("done");
+      note.textContent = "9 calls recorded…";
+      timer = window.setTimeout(() => {
+        traceEl.classList.add("done");
+        note.textContent = "9 calls recorded → 5 steps kept";
+        timer = window.setTimeout(lap, 4200);
+      }, 2200);
+    };
+    new IntersectionObserver((e) => {
+      clearTimeout(timer);
+      if (e[0].isIntersecting) lap();
+    }).observe(traceEl);
+  }
+
+  // ── contact form ──
+  const form = document.getElementById("contact-form") as HTMLFormElement | null;
+  if (form) {
+    const status = form.querySelector<HTMLElement>(".status-line")!;
+    const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+    const say = (text: string, tone: "ok" | "error" | "muted") => {
+      status.textContent = text;
+      status.style.color = `var(--${tone === "muted" ? "text-muted" : tone === "ok" ? "ok" : "danger"})`;
+    };
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const email = String(data.get("email") ?? "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        say("Please enter a valid email address.", "error");
+        form.querySelector<HTMLInputElement>("#c-email")?.focus();
+        return;
+      }
+      if (data.get("company")) return; // honeypot
+      const endpoint = form.dataset.endpoint;
+      if (!endpoint) {
+        say("The form isn't connected yet. Open an issue on GitHub instead.", "muted");
+        return;
+      }
+      button.disabled = true;
+      say("Sending…", "muted");
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json", accept: "application/json" },
+          body: JSON.stringify({ email, automate: String(data.get("message") ?? "").trim() }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        form.reset();
+        say("Thanks. We will reply by email.", "ok");
+      } catch {
+        say("That didn't go through. Please try again in a minute.", "error");
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+
+  // ── theme toggle: an explicit choice wins over the OS setting ──
+  const root = document.documentElement;
+  const isDark = () =>
+    root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  document.getElementById("theme-toggle")?.addEventListener("click", () => {
+    const next = isDark() ? "light" : "dark";
+    root.dataset.theme = next;
+    try {
+      localStorage.setItem("theme", next);
+    } catch {
+      // private mode: the choice lasts for this page only
+    }
+  });
+</script>
