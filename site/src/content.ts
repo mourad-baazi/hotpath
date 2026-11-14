@@ -6,6 +6,34 @@ export const DOCS_URL = `${GITHUB_URL}#readme`;
 /** Hotpath Cloud waitlist (Formspree). */
 export const WAITLIST_ENDPOINT = "https://formspree.io/f/mljdkzkd";
 
+/** Home page: what we are working on, in the order we build it. */
+export const WORK = [
+  {
+    status: "Looking for first pilots",
+    title: "Hotpath Private",
+    text: "Your own AI assistant, set up for you. An open model on EU hosting or your own machine, connected to your documents, with a written note of where everything sits.",
+    href: "#private",
+  },
+  {
+    status: "Open source",
+    title: "Hotpath Engine",
+    text: "Record an AI agent doing a task once. Hotpath compiles it into a workflow that calls a model only where judgment is needed, and notices when the world changes.",
+    href: "/engine",
+  },
+  {
+    status: "Measured on demo tasks",
+    title: "3–5× faster, about 10× cheaper",
+    text: "Against the agent that recorded it, on two demo tasks, at the prices we configured. The method, the caveats and the raw runs are public.",
+    href: BENCHMARK_URL,
+  },
+  {
+    status: "Not started",
+    title: "Tuned and private models",
+    text: "Small models tuned on the steps customers actually repeat. We build this only after a customer asks for it and pays for it.",
+    href: `${GITHUB_URL}/blob/main/docs/SPEC-TRAIN.md`,
+  },
+] as const;
+
 export const INSTALL =
   "git clone https://github.com/mourad-baazi/hotpath && cd hotpath && pnpm install";
 
