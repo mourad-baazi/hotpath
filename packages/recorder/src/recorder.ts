@@ -76,6 +76,8 @@ export async function runRecorder(
       task: options.task,
       startedAt: new Date().toISOString(),
       server: serverCommand,
+      serverArgv: options.serverArgv,
+      cwd: process.cwd(),
       inputs,
       tools: tools.map((t) => ({
         name: t.name,

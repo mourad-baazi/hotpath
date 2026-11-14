@@ -1,0 +1,148 @@
+---
+import CopyCommand from "./CopyCommand.astro";
+import GithubMark from "./GithubMark.astro";
+import HeatField from "./HeatField.astro";
+import { GITHUB_URL, INSTALL } from "../content";
+
+const ticker = [
+  ["8 → 5", "calls → steps"],
+  ["4", "mistakes dropped"],
+  ["~0.5 s", "replay on new data"],
+  ["1", "cheap AI call"],
+] as const;
+---
+
+<section class="hero relative overflow-hidden">
+  <div class="hero-wash" aria-hidden="true"></div>
+
+  <div class="wrap hero-inner relative">
+    <div class="field-wrap" aria-hidden="false">
+      <HeatField />
+    </div>
+
+    <div class="relative z-10 max-w-[640px] pt-14 pb-10 sm:pt-20 lg:pt-28 lg:pb-16">
+      <p class="eyebrow flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span class="inline-flex items-center gap-2 text-fg">
+          <span class="dot" aria-hidden="true"></span> JIT compiler for AI agents
+        </span>
+        <span class="text-muted/80">/ open source · MCP · Apache-2.0</span>
+      </p>
+
+      <h1 class="display mt-7 text-[3.3rem] sm:text-[5.4rem] lg:text-[6.4rem]">
+        <span class="line">Your agent</span>
+        <span class="line">thinks <em class="italic">once.</em></span>
+        <span class="line">Hotpath runs it</span>
+        <span class="line"><em class="heat-text pr-2 italic">forever.</em></span>
+      </h1>
+
+      <p class="lead mt-7">
+        Record an AI agent's tool calls once, drop its mistakes, and replay the task as a workflow that calls AI
+        only where judgment is needed. On our demo tasks: <span class="text-fg">3–5× faster, ~10× cheaper.</span>
+      </p>
+
+      <CopyCommand command={INSTALL} class="mt-9 max-w-[560px]" />
+
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <a href="#how" class="btn-primary">See how it works ↓</a>
+        <a href={GITHUB_URL} class="btn-ghost"><GithubMark size={15} /> Star on GitHub</a>
+      </div>
+      <p class="mt-4 font-mono text-[11px] text-muted">npm package soon · Node 22+ · Windows, macOS, Linux</p>
+    </div>
+  </div>
+
+  <div class="relative z-10 border-y border-line bg-surface/60 backdrop-blur-sm">
+    <dl class="wrap grid grid-cols-2 lg:grid-cols-4">
+      {
+        ticker.map(([v, l], i) => (
+          <div class:list={["border-line py-5 sm:py-6", i % 2 === 1 && "border-l pl-5 sm:pl-8", i === 2 && "lg:border-l lg:pl-8", i >= 2 && "max-lg:border-t"]}>
+            <dt class="eyebrow">{l}</dt>
+            <dd class="display num mt-1 text-4xl sm:text-5xl">{v}</dd>
+          </div>
+        ))
+      }
+    </dl>
+    <div class="heat-line h-[2px] w-full opacity-80" aria-hidden="true"></div>
+  </div>
+</section>
+
+<style>
+  .hero-wash {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(48rem 34rem at 78% 22%, color-mix(in oklab, var(--heat-3) 16%, transparent), transparent 62%),
+      radial-gradient(30rem 24rem at 92% 70%, color-mix(in oklab, var(--heat-1) 14%, transparent), transparent 60%);
+  }
+  .field-wrap {
+    position: relative;
+    margin: 1rem -1rem 0;
+    order: 2;
+  }
+  /* the scan fades out under the headline so text always wins */
+  @media (min-width: 1024px) {
+    .field-wrap {
+      mask-image: linear-gradient(90deg, transparent 0%, black 28%);
+      -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 28%);
+    }
+  }
+  @media (min-width: 1024px) {
+    .field-wrap {
+      position: absolute;
+      top: 2.5rem;
+      right: -3rem;
+      width: min(62%, 780px);
+      margin: 0;
+    }
+  }
+  @media (max-width: 1023px) {
+    .hero-inner {
+      display: flex;
+      flex-direction: column;
+    }
+    .field-wrap {
+      order: 2;
+    }
+  }
+  .line {
+    display: block;
+  }
+  h1 em {
+    font-style: italic;
+  }
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+    animation: blink 2.4s ease-in-out infinite;
+  }
+  @keyframes blink {
+    50% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+  }
+  /* staggered entrance for the headline */
+  :global(html.js) .hero h1 .line,
+  :global(html.js) .hero .lead {
+    animation: rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .hero h1 .line:nth-child(2) {
+    animation-delay: 80ms;
+  }
+  .hero h1 .line:nth-child(3) {
+    animation-delay: 160ms;
+  }
+  .hero h1 .line:nth-child(4) {
+    animation-delay: 240ms;
+  }
+  .hero .lead {
+    animation-delay: 340ms;
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+  }
+</style>

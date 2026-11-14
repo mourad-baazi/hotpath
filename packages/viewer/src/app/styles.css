@@ -9,6 +9,8 @@
   --ai-border: #e0a800;
   --effect: #c2410c;
   --selected: #2563eb;
+  --loop: rgba(37, 99, 235, 0.06);
+  --loop-border: #93a4c7;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -22,6 +24,8 @@
     --ai-border: #e0a800;
     --effect: #fb923c;
     --selected: #60a5fa;
+    --loop: rgba(96, 165, 250, 0.08);
+    --loop-border: #4b5874;
   }
 }
 html,
@@ -158,4 +162,30 @@ aside h3 {
     border-top: 1px solid var(--border);
     max-height: 40%;
   }
+}
+
+.loop {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--loop-border);
+  border-radius: 12px;
+  background: var(--loop);
+}
+.loop-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.loop-label {
+  font-weight: 600;
+}
+.loop-max {
+  margin-left: auto;
+  color: var(--muted);
+}
+.tag-loop {
+  border-color: var(--loop-border);
 }

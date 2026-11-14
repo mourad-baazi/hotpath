@@ -1,0 +1,198 @@
+---
+// The hero's signature animation (DESIGN.md "Motion"): an agent's trace with
+// its failed calls collapses into the short workflow Hotpath keeps. Under 2s,
+// plays once when visible, static (final state) with reduced motion.
+import { TRACE } from "../content";
+---
+
+<figure class="tc card overflow-hidden" data-state="trace" aria-label="An agent's 8 tool calls, 4 of them failed, compiled by Hotpath into a 5-step workflow with one AI step">
+  <div class="flex items-center gap-3 border-b border-line px-4 py-3">
+    <span class="flex gap-1.5" aria-hidden="true">
+      <span class="size-2.5 rounded-full bg-line"></span>
+      <span class="size-2.5 rounded-full bg-line"></span>
+      <span class="size-2.5 rounded-full bg-line"></span>
+    </span>
+    <span class="tc-title relative min-w-0 truncate font-mono text-xs text-muted">
+      <span class="t-trace">traces/brief/2026-10-01.jsonl</span>
+      <span class="t-flow">workflows/brief.json</span>
+    </span>
+    <button type="button" class="tc-replay ml-auto font-mono text-xs text-muted transition-colors hover:text-fg">
+      ↻ replay
+    </button>
+  </div>
+
+  <ol class="px-2 py-2 font-mono text-[11px] leading-5 sm:text-[11.5px]">
+    {
+      TRACE.map((row) => (
+        <li class:list={["row", `row-${row.kind}`]}>
+          <div class="row-inner">
+            <div class="row-line">
+              <span class="badge" aria-hidden="true">
+                <span class="v-trace">{row.kind === "fail" ? "✗" : "✓"}</span>
+                <span class="v-flow">{row.step}</span>
+              </span>
+              <span class="tool">{row.tool}</span>
+              <span class="args">
+                <span class="v-trace">{row.trace}</span>
+                <span class="v-flow">{row.flow}</span>
+              </span>
+              {row.effect && <span class="effect" title="side effect">⚡</span>}
+            </div>
+            {row.error && <div class="err">error: {row.error}</div>}
+          </div>
+        </li>
+      ))
+    }
+  </ol>
+
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-3 text-xs">
+    <span class="tc-foot relative min-h-5 flex-1">
+      <span class="t-trace text-muted"
+        >Agent: <b class="text-fg num">8</b> tool calls, <b class="text-danger num">4</b> failed, a frontier model on every step</span
+      >
+      <span class="t-flow text-muted"
+        >Hotpath: <b class="text-fg num">5</b> steps, <b class="text-ai num">1</b> cheap AI call, replays in <b class="text-ok num">~0.5s</b></span
+      >
+    </span>
+  </div>
+</figure>
+
+<style>
+  .tc .row {
+    display: grid;
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transition:
+      grid-template-rows 420ms ease-out,
+      opacity 260ms ease-out,
+      background-color 200ms ease-out;
+    border-radius: 8px;
+  }
+  .row-inner {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .row-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.32rem 0.6rem 0.1rem;
+    white-space: nowrap;
+  }
+  .err {
+    padding: 0 0.6rem 0.32rem 2.6rem;
+    color: var(--danger);
+    font-size: 0.92em;
+  }
+  .row-ok .row-line,
+  .row-ai .row-line {
+    padding-bottom: 0.32rem;
+  }
+  .badge {
+    position: relative;
+    display: inline-grid;
+    min-width: 1.5rem;
+    color: var(--ok);
+  }
+  .row-fail .badge {
+    color: var(--danger);
+  }
+  .tool {
+    color: var(--text);
+    font-weight: 500;
+  }
+  .args {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-muted);
+  }
+  .effect {
+    color: var(--warn);
+  }
+  .row-fail {
+    background: var(--danger-soft);
+    margin: 2px 0;
+  }
+
+  /* two versions of the same text, cross-faded */
+  .v-flow,
+  .t-flow {
+    display: none;
+  }
+  .tc[data-state="flow"] .v-trace,
+  .tc[data-state="flow"] .t-trace {
+    display: none;
+  }
+  .tc[data-state="flow"] .v-flow,
+  .tc[data-state="flow"] .t-flow {
+    display: inline;
+    animation: fade-in 320ms ease-out both;
+  }
+
+  /* the AI step only exists in the workflow */
+  .row-ai {
+    grid-template-rows: 0fr !important;
+    opacity: 0 !important;
+  }
+  .tc[data-state="flow"] .row-ai {
+    grid-template-rows: 1fr !important;
+    opacity: 1 !important;
+    background: var(--ai-soft);
+    margin: 2px 0;
+    transition-delay: 380ms;
+  }
+  .row-ai .tool,
+  .row-ai .badge {
+    color: var(--ai);
+  }
+
+  .tc[data-state="flow"] .row-fail {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    margin: 0;
+  }
+  .tc[data-state="flow"] .row-ok .badge {
+    color: var(--text-muted);
+  }
+  .tc[data-state="flow"] .args .v-flow {
+    color: var(--text);
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const fig of document.querySelectorAll<HTMLElement>(".tc")) {
+    const compile = () => (fig.dataset.state = "flow");
+    if (reduce) {
+      compile();
+    } else {
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            io.disconnect();
+            setTimeout(compile, 900);
+          }
+        },
+        { threshold: 0.4 },
+      );
+      io.observe(fig);
+    }
+    fig.querySelector(".tc-replay")?.addEventListener("click", () => {
+      fig.dataset.state = "trace";
+      setTimeout(compile, reduce ? 0 : 700);
+    });
+  }
+</script>

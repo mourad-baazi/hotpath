@@ -1,0 +1,28 @@
+{
+  "emails": [
+    {
+      "id": "e4",
+      "from": "carol@corp.com",
+      "subject": "Launch checklist for v2 is ready",
+      "body": "The launch checklist for v2 is ready for review. Two items still need an owner."
+    },
+    {
+      "id": "e5",
+      "from": "billing@vendor.io",
+      "subject": "Invoice #2041 attached",
+      "body": "Your invoice #2041 for October is attached. Total due: EUR 340.00."
+    },
+    {
+      "id": "e6",
+      "from": "dave@club.org",
+      "subject": "Book club: October pick",
+      "body": "This month we are reading 'The Master and Margarita'. Discussion on the 20th."
+    },
+    {
+      "id": "e7",
+      "from": "hr@corp.com",
+      "subject": "Open enrollment closes Friday",
+      "body": "Benefits open enrollment closes this Friday at 17:00. Review your choices in the portal."
+    }
+  ]
+}

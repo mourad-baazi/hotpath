@@ -7,6 +7,10 @@
     "weekly-report": {
       "agent": "pnpm --filter demo-agent start --",
       "server": "node examples/demo-tools/dist/weekly.js"
+    },
+    "inbox-digest": {
+      "agent": "pnpm --filter demo-agent start --",
+      "server": "node examples/demo-tools/dist/inbox.js"
     }
   }
 }

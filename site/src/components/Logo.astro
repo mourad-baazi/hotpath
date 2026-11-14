@@ -1,0 +1,24 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: className = "" } = Astro.props;
+// unique per instance: the logo appears in the nav and the footer
+const gid = `logo-heat-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<span class={`inline-flex items-center gap-2.5 ${className}`}>
+  <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+    <defs>
+      <linearGradient id={gid} x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0" style="stop-color: var(--heat-2)"></stop>
+        <stop offset="0.55" style="stop-color: var(--heat-3)"></stop>
+        <stop offset="1" style="stop-color: var(--heat-4)"></stop>
+      </linearGradient>
+    </defs>
+    <circle cx="6" cy="25" r="3" fill="var(--text-muted)"></circle>
+    <circle cx="26" cy="7" r="3" fill="var(--heat-4)"></circle>
+    <path d="M6 25 C 14 25, 10 13, 16 13 S 20 7, 26 7" fill="none" stroke={`url(#${gid})`} stroke-width="3.2" stroke-linecap="round"></path>
+  </svg>
+  <span class="font-serif text-[1.6rem] leading-none tracking-tight">hotpath</span>
+</span>

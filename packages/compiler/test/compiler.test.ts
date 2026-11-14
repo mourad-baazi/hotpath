@@ -36,6 +36,20 @@ describe("compiler (fixture trace)", () => {
     expect(wf.inputs.date).toEqual({ type: "string", example: "2026-10-01" });
   });
 
+  it("carries the server argv and cwd from the trace, when recorded", async () => {
+    const trace = await readTrace(fixture);
+    await expect(compileFixture()).resolves.not.toHaveProperty("serverArgv");
+    const argv = ["C:\\Program Files\\nodejs\\node.exe", "C:\\My Tools\\s.js"];
+    const wf = workflowSchema.parse(
+      compileTrace(
+        { ...trace, meta: { ...trace.meta, serverArgv: argv, cwd: "/srv" } },
+        "traces/morning-brief/fixture.jsonl",
+      ),
+    );
+    expect(wf.serverArgv).toEqual(argv);
+    expect(wf.cwd).toBe("/srv");
+  });
+
   it("templates input args and keeps constants", async () => {
     const wf = await compileFixture();
     const byId = Object.fromEntries(wf.steps.map((s) => [s.id, s]));

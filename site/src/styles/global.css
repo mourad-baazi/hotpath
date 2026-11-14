@@ -1,0 +1,261 @@
+@import "tailwindcss";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/martian-mono";
+
+/* Times/Liberation Serif scaled to Instrument Serif's width (measured: 83.8%),
+   so the headline doesn't reflow when the web font arrives */
+@font-face {
+  font-family: "Instrument Serif Fallback";
+  src: local("Times New Roman"), local("Liberation Serif"), local("Times");
+  size-adjust: 83.8%;
+}
+
+/* "Heat signature": a thermal scan of an agent's run. Cold grey steps, one
+   glowing path. Light = thermal printer paper, dark = night scan. Every color
+   is a token (ship/design/DESIGN.md); components never hard-code one. */
+:root {
+  --bg: #f3eee4;
+  --surface: #fbf8f2;
+  --surface-2: #e9e1d3;
+  --border: #d9cfbe;
+  --text: #1a1410;
+  --text-muted: #665a4c;
+  --accent: #b23a0a;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(178 58 10 / 0.09);
+  --ai: #5b3fd1;
+  --ai-soft: rgb(91 63 209 / 0.1);
+  --ok: #2e6e3a;
+  --warn: #8a5200;
+  --danger: #a8231b;
+  --danger-soft: rgb(168 35 27 / 0.07);
+  --cold: #b9ad9b;
+  --cold-line: rgb(102 90 76 / 0.22);
+  --heat-1: #4b2a8f;
+  --heat-2: #c0266d;
+  --heat-3: #e2531a;
+  --heat-4: #e8a317;
+  --heat-5: #f6d27a;
+  --glow-opacity: 0.35;
+  --grain-opacity: 0.07;
+  --shadow:
+    0 1px 0 rgb(26 20 16 / 0.04), 0 14px 40px -18px rgb(26 20 16 / 0.25);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d0a08;
+  --surface: #16120f;
+  --surface-2: #201a15;
+  --border: #2e2620;
+  --text: #f2ebe1;
+  --text-muted: #a89a89;
+  --accent: #ff5a1f;
+  --accent-fg: #0d0a08;
+  --accent-soft: rgb(255 90 31 / 0.12);
+  --ai: #a98bff;
+  --ai-soft: rgb(169 139 255 / 0.14);
+  --ok: #7fd69a;
+  --warn: #ffc53d;
+  --danger: #ff6b5c;
+  --danger-soft: rgb(255 107 92 / 0.1);
+  --cold: #4a4038;
+  --cold-line: rgb(168 154 137 / 0.13);
+  --heat-1: #5b34c4;
+  --heat-2: #e0307f;
+  --heat-3: #ff5a1f;
+  --heat-4: #ffb020;
+  --heat-5: #fff1c9;
+  --glow-opacity: 0.6;
+  --grain-opacity: 0.05;
+  --shadow: none;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d0a08;
+    --surface: #16120f;
+    --surface-2: #201a15;
+    --border: #2e2620;
+    --text: #f2ebe1;
+    --text-muted: #a89a89;
+    --accent: #ff5a1f;
+    --accent-fg: #0d0a08;
+    --accent-soft: rgb(255 90 31 / 0.12);
+    --ai: #a98bff;
+    --ai-soft: rgb(169 139 255 / 0.14);
+    --ok: #7fd69a;
+    --warn: #ffc53d;
+    --danger: #ff6b5c;
+    --danger-soft: rgb(255 107 92 / 0.1);
+    --cold: #4a4038;
+    --cold-line: rgb(168 154 137 / 0.13);
+    --heat-1: #5b34c4;
+    --heat-2: #e0307f;
+    --heat-3: #ff5a1f;
+    --heat-4: #ffb020;
+    --heat-5: #fff1c9;
+    --glow-opacity: 0.6;
+    --grain-opacity: 0.05;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", "Instrument Serif Fallback", Georgia, serif;
+  --font-mono: "Martian Mono Variable", ui-monospace, SFMono-Regular, monospace;
+  --shadow-card: var(--shadow);
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply font-sans antialiased;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  /* film grain over everything: the "scan" texture */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-fg);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  code,
+  kbd,
+  pre {
+    @apply font-mono;
+  }
+}
+
+@utility wrap {
+  @apply mx-auto w-full max-w-[1200px] px-4 sm:px-8;
+}
+@utility eyebrow {
+  @apply font-mono text-[11px] tracking-[0.18em] text-muted uppercase;
+}
+@utility display {
+  @apply font-serif font-normal tracking-[-0.02em];
+  line-height: 0.95;
+}
+@utility h2 {
+  @apply display text-5xl text-balance sm:text-6xl lg:text-7xl;
+}
+@utility lead {
+  @apply max-w-[58ch] text-lg text-pretty text-muted;
+}
+@utility card {
+  @apply rounded-[14px] border border-line bg-surface shadow-card;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 font-mono text-[12px] tracking-wide uppercase transition-[filter,background-color,transform] duration-150 ease-out active:translate-y-px;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-accent-fg hover:brightness-110 disabled:opacity-60;
+}
+@utility btn-ghost {
+  @apply btn border border-line bg-transparent text-fg hover:bg-surface-2;
+}
+@utility pill {
+  @apply inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 font-mono text-[11px];
+}
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+/* text filled with the thermal gradient */
+@utility heat-text {
+  background: linear-gradient(
+    100deg,
+    var(--heat-1),
+    var(--heat-2) 30%,
+    var(--heat-3) 58%,
+    var(--heat-4) 85%,
+    var(--heat-5)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility heat-line {
+  background: linear-gradient(
+    90deg,
+    var(--heat-1),
+    var(--heat-2),
+    var(--heat-3),
+    var(--heat-4),
+    var(--heat-5)
+  );
+}
+
+/* reveal on scroll (set by a tiny observer in Base.astro) */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--delay, 0ms);
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+html:not(.js) .reveal {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

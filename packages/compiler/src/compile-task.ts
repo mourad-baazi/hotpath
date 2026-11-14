@@ -1,8 +1,14 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readTrace, workflowSchema, type Workflow } from "hotpath-shared";
+import {
+  readTrace,
+  workflowSchema,
+  type ToolStep,
+  type TraceFile,
+  type Workflow,
+} from "hotpath-shared";
 
 import { compileTrace } from "./compiler.js";
 
@@ -46,10 +52,49 @@ export async function compileTaskInMemory(
       `trace task is "${trace.meta.task}" but you asked to compile "${task}" — check --trace`,
     );
   }
-  const workflow = workflowSchema.parse(
-    compileTrace(trace, path.relative(repoRoot, resolved).replace(/\\/g, "/")),
+  const compiled = compileTrace(
+    trace,
+    path.relative(repoRoot, resolved).replace(/\\/g, "/"),
   );
+  const workflow = workflowSchema.parse({
+    ...compiled,
+    baseline: await agentBaseline(trace),
+  });
   return { workflow, traceFile: resolved };
+}
+
+/**
+ * The recorded run's wall time, plus the agent's cost when the agent reported
+ * one (the demo agent writes out/agent-run.json) while this trace was recorded.
+ * A cost from another run is never borrowed.
+ */
+export async function agentBaseline(
+  trace: TraceFile,
+  agentRunFile = path.join(repoRoot, "out", "agent-run.json"),
+): Promise<Workflow["baseline"]> {
+  const start = Date.parse(trace.meta.startedAt);
+  const end = Date.parse(trace.end.endedAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+    return undefined;
+  }
+  const baseline: NonNullable<Workflow["baseline"]> = {
+    durationMs: end - start,
+  };
+  try {
+    const { mtimeMs } = await stat(agentRunFile);
+    // the agent writes its metrics right after its MCP session closes
+    if (mtimeMs >= start - 5_000 && mtimeMs <= end + 120_000) {
+      const run = JSON.parse(await readFile(agentRunFile, "utf8")) as {
+        costUsd?: unknown;
+      };
+      if (typeof run.costUsd === "number" && run.costUsd >= 0) {
+        baseline.costUsd = run.costUsd;
+      }
+    }
+  } catch {
+    // no agent metrics: cost stays unknown
+  }
+  return baseline;
 }
 
 export async function saveWorkflow(workflow: Workflow): Promise<void> {
@@ -88,7 +133,8 @@ export async function compileTask(
 export function lostReadOnlySteps(old: Workflow, next: Workflow): string[] {
   const count = (w: Workflow) => {
     const counts = new Map<string, number>();
-    for (const step of w.steps) {
+    const tools = w.steps.flatMap((s) => (s.type === "foreach" ? s.body : [s]));
+    for (const step of tools) {
       if (step.type === "tool" && !step.sideEffect) {
         counts.set(step.tool, (counts.get(step.tool) ?? 0) + 1);
       }
@@ -120,15 +166,24 @@ export async function loadWorkflow(task: string): Promise<Workflow> {
 }
 
 // `s1 tool get_emails(date={{inputs.date}})` / `s4 llm (cheap) → s5.text`
+// `s3 foreach email in {{steps.s1.result.emails}} (max 50)` + indented body
 export function formatWorkflow(workflow: Workflow): string {
   const lines: string[] = [];
+  const toolLine = (step: ToolStep, indent: string) => {
+    const args = Object.entries(step.args)
+      .map(([k, v]) => `${k}=${formatValue(v)}`)
+      .join(", ");
+    const mark = step.sideEffect ? " ⚡" : "";
+    lines.push(`${indent}${step.id} tool ${step.tool}(${args})${mark}`);
+  };
   for (const step of workflow.steps) {
     if (step.type === "tool") {
-      const args = Object.entries(step.args)
-        .map(([k, v]) => `${k}=${formatValue(v)}`)
-        .join(", ");
-      const mark = step.sideEffect ? " ⚡" : "";
-      lines.push(`${step.id} tool ${step.tool}(${args})${mark}`);
+      toolLine(step, "");
+    } else if (step.type === "foreach") {
+      lines.push(
+        `${step.id} foreach ${step.as} in ${step.over} (max ${step.maxItems})`,
+      );
+      for (const body of step.body) toolLine(body, "  ");
     } else {
       const consumer = findOutputConsumer(workflow, step.id);
       const arrow = consumer ? ` → ${consumer.stepId}.${consumer.arg}` : "";
@@ -142,7 +197,10 @@ function findOutputConsumer(
   workflow: Workflow,
   llmId: string,
 ): { stepId: string; arg: string } | null {
-  for (const step of workflow.steps) {
+  const tools = workflow.steps.flatMap((s) =>
+    s.type === "foreach" ? s.body : [s],
+  );
+  for (const step of tools) {
     if (step.type !== "tool") continue;
     for (const [arg, value] of Object.entries(step.args)) {
       if (value === `{{steps.${llmId}.output}}`)

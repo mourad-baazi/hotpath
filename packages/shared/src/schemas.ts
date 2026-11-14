@@ -14,6 +14,10 @@ export const traceMetaSchema = z.object({
   task: z.string(),
   startedAt: z.string(),
   server: z.string(),
+  /** the server command as an argv array (paths with spaces stay intact) */
+  serverArgv: z.array(z.string()).optional(),
+  /** working directory the server was started in */
+  cwd: z.string().optional(),
   inputs: z.record(z.string(), z.unknown()),
   tools: z.array(traceToolInfoSchema),
 });
@@ -89,9 +93,30 @@ export const llmStepSchema = z.object({
 });
 export type LlmStep = z.infer<typeof llmStepSchema>;
 
+/**
+ * Runs `body` once per item of the list `over` resolves to. Inside the body,
+ * `{{<as>.<path>}}` is the current item; afterwards `{{steps.<id>.results}}`
+ * is the list of per-item results.
+ */
+export const foreachStepSchema = z.object({
+  id: z.string(),
+  type: z.literal("foreach"),
+  over: z.string(),
+  as: z
+    .string()
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+    .refine((v) => v !== "inputs" && v !== "steps", "reserved name"),
+  body: z.array(toolStepSchema).min(1),
+  maxItems: z.number().int().positive(),
+});
+export type ForeachStep = z.infer<typeof foreachStepSchema>;
+
+export const DEFAULT_MAX_ITEMS = 50;
+
 export const workflowStepSchema = z.discriminatedUnion("type", [
   toolStepSchema,
   llmStepSchema,
+  foreachStepSchema,
 ]);
 export type WorkflowStep = z.infer<typeof workflowStepSchema>;
 
@@ -122,9 +147,19 @@ export const workflowSchema = z.object({
   task: z.string(),
   compiledFrom: z.string(),
   server: z.string(),
+  serverArgv: z.array(z.string()).optional(),
+  cwd: z.string().optional(),
   inputs: z.record(z.string(), workflowInputSchema),
   steps: z.array(workflowStepSchema),
   /** failed/retried calls from the trace that did not become steps */
   droppedCalls: z.array(droppedCallSchema).optional(),
+  /** what the recorded agent run took: the reference for "saved" estimates */
+  baseline: z
+    .object({
+      durationMs: z.number().nonnegative(),
+      /** only when the agent reported it (out/agent-run.json during the trace) */
+      costUsd: z.number().nonnegative().optional(),
+    })
+    .optional(),
 });
 export type Workflow = z.infer<typeof workflowSchema>;

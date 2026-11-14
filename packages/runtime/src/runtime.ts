@@ -25,6 +25,7 @@ import {
   type GroundingEntry,
   type StepGuard,
   type TemplateContext,
+  type ToolStep,
   type Workflow,
 } from "hotpath-shared";
 
@@ -195,6 +196,17 @@ async function fallback(
   return metrics;
 }
 
+// Start the server where it was recorded (a wrapped agent server may use
+// relative paths); fall back to the repo root when that folder is gone.
+async function serverCwd(recorded: string | undefined): Promise<string> {
+  if (!recorded) return repoRoot;
+  try {
+    return (await stat(recorded)).isDirectory() ? recorded : repoRoot;
+  } catch {
+    return repoRoot;
+  }
+}
+
 async function runConfiguredAgent(request: AgentRequest): Promise<void> {
   const config = JSON.parse(
     await readFile(path.join(repoRoot, "hotpath.config.json"), "utf8"),
@@ -314,11 +326,11 @@ export async function runWorkflow(
   }
 
   const start = Date.now();
-  const serverArgv = splitCommand(workflow.server);
+  const serverArgv = workflow.serverArgv ?? splitCommand(workflow.server);
   const transport = new StdioClientTransport({
     command: serverArgv[0],
     args: serverArgv.slice(1),
-    cwd: repoRoot,
+    cwd: await serverCwd(workflow.cwd),
     env: { ...process.env } as Record<string, string>,
     // no shell: the MCP SDK starts the server with cross-spawn (handles .cmd shims)
   });
@@ -352,6 +364,34 @@ export async function runWorkflow(
     toolCalls,
     ...extra,
   });
+
+  // Runs one tool step; returns a drift reason, or null when its guard passes.
+  const callTool = async (
+    step: ToolStep,
+    label: string,
+  ): Promise<string | null> => {
+    const args = renderTemplate(step.args, ctx) as Record<string, unknown>;
+    if (step.sideEffect && options.dryRun) {
+      console.log(
+        `dry-run: ${label} ${step.tool} would send ${JSON.stringify(args)}`,
+      );
+      return null;
+    }
+    toolCalls.push({ tool: step.tool, args });
+    const result = await client.callTool({
+      name: step.tool,
+      arguments: args,
+    });
+    if (step.sideEffect) sideEffectRan = true;
+    const value = extractResult(result);
+    ctx.steps[step.id] = { result: value };
+    const isError = (result as { isError?: boolean }).isError === true;
+    if (isError) {
+      return `${label}: tool ${step.tool} returned an error: ${previewOf(value)}`;
+    }
+    const failure = checkToolGuard(step.guard, value);
+    return failure && label !== step.id ? `${label}: ${failure}` : failure;
+  };
 
   try {
     for (const step of workflow.steps) {
@@ -419,27 +459,40 @@ export async function runWorkflow(
         continue;
       }
 
-      const args = renderTemplate(step.args, ctx) as Record<string, unknown>;
-      if (step.sideEffect && options.dryRun) {
-        console.log(
-          `dry-run: ${step.id} ${step.tool} would send ${JSON.stringify(args)}`,
-        );
+      if (step.type === "foreach") {
+        const list = renderTemplate(step.over, ctx);
+        if (!Array.isArray(list)) {
+          await drift(
+            `${step.over} is not a list any more (got ${previewOf(list)})`,
+          );
+        }
+        const all = list as unknown[];
+        if (all.length > step.maxItems) {
+          console.log(
+            `⚠ ${step.id}: ${all.length} items, running the first ${step.maxItems} (maxItems)`,
+          );
+        }
+        const items = all.slice(0, step.maxItems);
+        const results: unknown[] = [];
+        for (const [i, item] of items.entries()) {
+          ctx.vars = { ...ctx.vars, [step.as]: item };
+          for (const body of step.body) {
+            const failure = await callTool(
+              body,
+              `${body.id} (item ${i + 1} of ${items.length})`,
+            );
+            if (failure) await drift(failure);
+          }
+          const last = step.body[step.body.length - 1]!;
+          results.push(ctx.steps[last.id]?.result);
+        }
+        if (ctx.vars) delete ctx.vars[step.as];
+        ctx.steps[step.id] = { results };
         record(true);
         continue;
       }
-      toolCalls.push({ tool: step.tool, args });
-      const result = await client.callTool({
-        name: step.tool,
-        arguments: args,
-      });
-      if (step.sideEffect) sideEffectRan = true;
-      const value = extractResult(result);
-      ctx.steps[step.id] = { result: value };
-      const isError = (result as { isError?: boolean }).isError === true;
-      if (isError) {
-        await drift(`tool ${step.tool} returned an error: ${previewOf(value)}`);
-      }
-      const failure = checkToolGuard(step.guard, value);
+
+      const failure = await callTool(step, step.id);
       if (failure) await drift(failure);
       record(true);
     }

@@ -3,17 +3,23 @@
 //   {{steps.<id>.result}}                    (whole result)
 //   {{steps.<id>.result.<json.path>}}        (e.g. items.0.id)
 //   {{steps.<id>.output}}                    (llm step text)
+//   {{steps.<id>.results}}                   (foreach: per-item results)
+//   {{<as>.<json.path>}}                     (foreach body: the current item)
+// Loop body ids contain a dot (s3.1); `steps.s3.1.result` resolves to them.
 // A value that is exactly one template keeps its original type; anywhere else
 // it's string interpolation (non-strings JSON-stringified).
 
 export interface StepValues {
   result?: unknown;
   output?: string;
+  results?: unknown[];
 }
 
 export interface TemplateContext {
   inputs: Record<string, unknown>;
   steps: Record<string, StepValues>;
+  /** loop variables (foreach `as`) in scope */
+  vars?: Record<string, unknown>;
 }
 
 const TEMPLATE_RE = /\{\{([^{}]+)\}\}/g;
@@ -49,19 +55,35 @@ export function lookupReference(expr: string, ctx: TemplateContext): unknown {
   return lookup(expr, ctx);
 }
 
+function walk(value: unknown, path: string[]): unknown {
+  for (const p of path) value = child(value, p);
+  return value;
+}
+
 function lookup(expr: string, ctx: TemplateContext): unknown {
   const parts = expr.trim().split(".");
   if (parts[0] === "inputs" && parts.length === 2) return ctx.inputs[parts[1]];
   if (parts[0] === "steps" && parts.length >= 3) {
-    const step = ctx.steps[parts[1]];
-    if (parts[2] === "output" && parts.length === 3) return step?.output;
-    if (parts[2] === "result") {
-      let value: unknown = step?.result;
-      for (const p of parts.slice(3)) {
-        value = child(value, p);
-      }
-      return value;
+    // extend the id over numeric segments while such a step exists (s3.1)
+    let id = parts[1];
+    let i = 2;
+    while (
+      i < parts.length - 1 &&
+      /^\d+$/.test(parts[i]) &&
+      `${id}.${parts[i]}` in ctx.steps
+    ) {
+      id = `${id}.${parts[i]}`;
+      i++;
     }
+    const step = ctx.steps[id];
+    const field = parts[i];
+    if (field === "output" && i === parts.length - 1) return step?.output;
+    if (field === "result") return walk(step?.result, parts.slice(i + 1));
+    if (field === "results") return walk(step?.results, parts.slice(i + 1));
+    return undefined;
+  }
+  if (ctx.vars && Object.hasOwn(ctx.vars, parts[0])) {
+    return walk(ctx.vars[parts[0]], parts.slice(1));
   }
   return undefined;
 }

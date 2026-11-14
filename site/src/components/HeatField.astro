@@ -1,0 +1,336 @@
+---
+// The hero's signature visual: a "thermal scan" of an agent run. Cold grey
+// steps everywhere, four mistakes the compiler drops, and one glowing path —
+// the hot path Hotpath keeps. Generated at build time (seeded, so stable);
+// draws itself once, then a pulse travels along it. Static with reduced motion.
+
+const W = 800;
+const H = 620;
+
+let seed = 20261001;
+const rnd = () => {
+  seed = (seed * 1664525 + 1013904223) % 4294967296;
+  return seed / 4294967296;
+};
+
+interface Pt {
+  x: number;
+  y: number;
+}
+const hot = [
+  { x: 70, y: 505, id: "s1", label: "get_emails" },
+  { x: 220, y: 395, id: "s2", label: "get_calendar" },
+  { x: 360, y: 450, id: "s3", label: "get_weather" },
+  { x: 520, y: 285, id: "s4", label: "AI · write brief", ai: true },
+  { x: 705, y: 150, id: "s5", label: "send_message ⚡" },
+];
+const failed: Pt[] = [
+  { x: 150, y: 575 },
+  { x: 290, y: 318 },
+  { x: 445, y: 548 },
+  { x: 640, y: 352 },
+];
+
+const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
+const cold: Pt[] = [];
+for (let tries = 0; cold.length < 92 && tries < 6000; tries++) {
+  const p = { x: 14 + rnd() * (W - 28), y: 14 + rnd() * (H - 28) };
+  if ([...hot, ...failed].some((h) => dist(h, p) < 48)) continue;
+  if (cold.some((c) => dist(c, p) < 34)) continue;
+  cold.push(p);
+}
+
+// each cold step links to its two nearest neighbours: the agent's wandering
+const edges: Array<[Pt, Pt]> = [];
+const all = [...cold, ...hot, ...failed];
+for (const c of cold) {
+  const near = all
+    .filter((o) => o !== c)
+    .sort((a, b) => dist(a, c) - dist(b, c))
+    .slice(0, 2)
+    .filter((o) => dist(o, c) < 125);
+  for (const n of near) edges.push([c, n]);
+}
+
+// smooth curve through the hot steps (Catmull-Rom → cubic Bézier)
+const pts = hot;
+let d = `M ${pts[0].x} ${pts[0].y}`;
+for (let i = 0; i < pts.length - 1; i++) {
+  const p0 = pts[i - 1] ?? pts[i];
+  const p1 = pts[i];
+  const p2 = pts[i + 1];
+  const p3 = pts[i + 2] ?? p2;
+  const c1 = { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 };
+  const c2 = { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 };
+  d += ` C ${c1.x.toFixed(1)} ${c1.y.toFixed(1)}, ${c2.x.toFixed(1)} ${c2.y.toFixed(1)}, ${p2.x} ${p2.y}`;
+}
+
+const r = (n: number) => n.toFixed(1);
+// Martian Mono at 10.5px is ~8.2px per character
+const labelWidth = (s: string) => s.length * 8.2 + 26;
+const ai = hot.find((h) => h.ai)!;
+---
+
+<svg
+  class="heat-field"
+  viewBox={`0 0 ${W} ${H}`}
+  role="img"
+  aria-label="A thermal scan of an agent run: about a hundred grey steps and four failed calls, with one glowing path through five steps: get_emails, get_calendar, get_weather, an AI step that writes the brief, and send_message."
+>
+  <defs>
+    <linearGradient id="heat-grad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" style="stop-color: var(--heat-1)"></stop>
+      <stop offset="0.32" style="stop-color: var(--heat-2)"></stop>
+      <stop offset="0.6" style="stop-color: var(--heat-3)"></stop>
+      <stop offset="0.85" style="stop-color: var(--heat-4)"></stop>
+      <stop offset="1" style="stop-color: var(--heat-5)"></stop>
+    </linearGradient>
+    <radialGradient id="heat-halo">
+      <stop offset="0" style="stop-color: var(--heat-4); stop-opacity: 0.55"></stop>
+      <stop offset="0.45" style="stop-color: var(--heat-3); stop-opacity: 0.18"></stop>
+      <stop offset="1" style="stop-color: var(--heat-2); stop-opacity: 0"></stop>
+    </radialGradient>
+  </defs>
+
+  <g class="edges">
+    {edges.map(([a, b]) => <line x1={r(a.x)} y1={r(a.y)} x2={r(b.x)} y2={r(b.y)} />)}
+  </g>
+
+  <g class="cold">
+    {
+      cold.map((c, i) => (
+        <circle cx={r(c.x)} cy={r(c.y)} r={(2 + ((i * 7) % 5) * 0.45).toFixed(2)} style={`--d:${(i * 11) % 620}ms`} />
+      ))
+    }
+  </g>
+
+  <g class="failed">
+    {
+      failed.map((f, i) => (
+        <g transform={`translate(${f.x} ${f.y})`} style={`--d:${300 + i * 90}ms`}>
+          <circle r="11" />
+          <path d="M -4 -4 L 4 4 M 4 -4 L -4 4" />
+        </g>
+      ))
+    }
+  </g>
+
+  <g class="iso" transform={`translate(${ai.x} ${ai.y})`}>
+    <circle r="34"></circle>
+    <circle r="58"></circle>
+    <circle r="86"></circle>
+  </g>
+
+  <path class="hot-glow glow-wide" d={d} pathLength="1"></path>
+  <path class="hot-glow" d={d} pathLength="1"></path>
+  <path class="hot-line" d={d} pathLength="1"></path>
+  <path class="hot-pulse" d={d} pathLength="1"></path>
+
+  {
+    hot.map((h, i) => (
+      <g class:list={["hot-node", h.ai && "is-ai"]} transform={`translate(${h.x} ${h.y})`} style={`--i:${i}`}>
+        <circle class="halo" r="34" />
+        <circle class="ring" r="7.5" />
+        <circle class="core" r="3" />
+        <g transform={`translate(${h.x > 600 ? -labelWidth(h.label) - 14 : 14} ${h.y > 480 ? -34 : -30})`}>
+          <rect width={labelWidth(h.label)} height="24" rx="12" />
+          <text x="12" y="16">
+            <tspan class="sid">{h.id}</tspan> {h.label}
+          </text>
+        </g>
+      </g>
+    ))
+  }
+</svg>
+
+<style>
+  .heat-field {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+  .edges line {
+    stroke: var(--cold-line);
+    stroke-width: 1;
+  }
+  .cold circle {
+    fill: var(--cold);
+    opacity: 0;
+    animation: dot-in 700ms ease-out forwards;
+    animation-delay: var(--d);
+  }
+  .failed g {
+    opacity: 0;
+    animation: dot-in 600ms ease-out forwards;
+    animation-delay: var(--d);
+  }
+  .failed circle {
+    fill: var(--danger-soft);
+    stroke: var(--danger);
+    stroke-opacity: 0.55;
+    stroke-dasharray: 3 3;
+  }
+  .failed path {
+    stroke: var(--danger);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+
+  .hot-glow,
+  .hot-line,
+  .hot-pulse {
+    fill: none;
+    stroke-linecap: round;
+  }
+  /* glow from two soft wide strokes: no blur filter to repaint every frame */
+  .hot-glow {
+    stroke: url(#heat-grad);
+    stroke-width: 11;
+    opacity: calc(var(--glow-opacity) * 0.45);
+  }
+  .glow-wide {
+    stroke-width: 24;
+    opacity: calc(var(--glow-opacity) * 0.18);
+  }
+  .hot-line {
+    stroke: url(#heat-grad);
+    stroke-width: 3.2;
+  }
+  .hot-glow,
+  .hot-line {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 1500ms cubic-bezier(0.65, 0.05, 0.25, 1) 650ms forwards;
+  }
+  .hot-pulse {
+    stroke: var(--heat-5);
+    stroke-width: 5;
+    stroke-dasharray: 0.035 0.965;
+    stroke-dashoffset: 1;
+    opacity: 0;
+    animation: pulse 3s linear 2300ms infinite;
+  }
+
+  .hot-node {
+    opacity: 0;
+    animation: node-in 520ms cubic-bezier(0.2, 1.3, 0.4, 1) forwards;
+    animation-delay: calc(800ms + var(--i) * 260ms);
+  }
+  .hot-node .halo {
+    fill: url(#heat-halo);
+  }
+  .hot-node .ring,
+  .hot-node .halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ring-in 620ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+    animation-delay: calc(800ms + var(--i) * 260ms);
+  }
+  .hot-node .ring {
+    fill: var(--bg);
+    stroke: var(--heat-3);
+    stroke-width: 2;
+  }
+  .hot-node .core {
+    fill: var(--heat-4);
+  }
+  .hot-node rect {
+    fill: var(--surface);
+    stroke: var(--border);
+  }
+  .hot-node text {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    fill: var(--text);
+  }
+  .hot-node .sid {
+    fill: var(--text-muted);
+  }
+  .hot-node.is-ai .ring {
+    stroke: var(--ai);
+  }
+  .hot-node.is-ai .core {
+    fill: var(--ai);
+  }
+  .hot-node.is-ai rect {
+    fill: var(--ai-soft);
+    stroke: var(--ai);
+  }
+  .hot-node.is-ai text,
+  .hot-node.is-ai .sid {
+    fill: var(--ai);
+  }
+
+  .iso circle {
+    fill: none;
+    stroke: var(--ai);
+    stroke-opacity: 0.22;
+    stroke-dasharray: 2 5;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: iso 4s ease-out infinite;
+  }
+  .iso circle:nth-child(2) {
+    animation-delay: 1.3s;
+  }
+  .iso circle:nth-child(3) {
+    animation-delay: 2.6s;
+  }
+
+  @keyframes dot-in {
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pulse {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+    8%,
+    88% {
+      opacity: 1;
+    }
+    100% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+  }
+  /* opacity only on the group (its transform attribute positions it); the
+     ring itself scales in */
+  @keyframes node-in {
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes ring-in {
+    from {
+      transform: scale(0.3);
+    }
+  }
+  @keyframes iso {
+    0% {
+      transform: scale(0.85);
+      opacity: 0;
+    }
+    30% {
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.25);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hot-pulse,
+    .iso {
+      display: none;
+    }
+  }
+</style>

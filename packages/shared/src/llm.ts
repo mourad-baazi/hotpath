@@ -144,7 +144,8 @@ async function callWithRetries<T>(
         }
         const started = Date.now();
         await sleep(delay);
-        waited.ms += Date.now() - started;
+        // Date.now() ticks in whole ms, so a sleep can measure ~1ms short
+        waited.ms += Math.max(delay, Date.now() - started);
         rateLimited++;
         continue;
       }

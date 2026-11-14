@@ -1,0 +1,10 @@
+// Cloudflare Workers deploy for the hotpath.run landing page: a static-assets
+// Worker serving the Astro build. Build command: pnpm --filter site build
+{
+  "name": "hotpath-ship",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site/dist",
+    "html_handling": "auto-trailing-slash",
+  },
+}

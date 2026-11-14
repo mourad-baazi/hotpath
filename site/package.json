@@ -1,0 +1,22 @@
+{
+  "name": "site",
+  "version": "0.1.0",
+  "description": "hotpath.run: the Hotpath landing page and Cloud waitlist",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "test": "node --test test/site.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/martian-mono": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "lucide-static": "^1.49.0",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -94,6 +94,8 @@ describe("recorder proxy", () => {
     expect(trace.meta.task).toBe(task);
     expect(trace.meta.inputs).toEqual({ date: "2026-10-01" });
     expect(trace.meta.server).toContain("demo-tools");
+    expect(trace.meta.serverArgv).toEqual(demoToolsArgv());
+    expect(trace.meta.cwd).toBe(repoRoot);
     expect(trace.meta.tools.map((t) => t.name).sort()).toEqual([
       "get_calendar",
       "get_emails",

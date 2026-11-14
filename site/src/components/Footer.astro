@@ -1,0 +1,41 @@
+---
+import Logo from "./Logo.astro";
+import { BENCHMARK_URL, DOCS_URL, GITHUB_URL } from "../content";
+---
+
+<footer class="relative overflow-hidden border-t border-line pt-14">
+  <div class="wrap flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
+    <div>
+      <Logo />
+      <p class="mt-4 max-w-xs text-[15px] text-muted">
+        Agents are the brain. <em class="font-serif text-lg text-fg italic">Hotpath is the muscle memory.</em>
+      </p>
+    </div>
+    <nav aria-label="Footer" class="grid grid-cols-2 gap-x-14 gap-y-3 font-mono text-[11px] tracking-[0.12em] uppercase sm:grid-cols-3">
+      <a href={GITHUB_URL} class="text-muted hover:text-fg">GitHub</a>
+      <a href={DOCS_URL} class="text-muted hover:text-fg">Docs</a>
+      <a href={BENCHMARK_URL} class="text-muted hover:text-fg">Benchmark</a>
+      <a href={`${GITHUB_URL}/blob/main/LICENSE`} class="text-muted hover:text-fg">Apache-2.0</a>
+      <a href={`${GITHUB_URL}/blob/main/SECURITY.md`} class="text-muted hover:text-fg">Security</a>
+      <a href={`${GITHUB_URL}/issues`} class="text-muted hover:text-fg">Contact</a>
+    </nav>
+  </div>
+  <div class="wrap mt-12 flex items-center justify-between font-mono text-[10.5px] text-muted">
+    <span>© 2026 Hotpath</span><span>hotpath.run</span>
+  </div>
+  <p class="wordmark display select-none" aria-hidden="true">hotpath</p>
+</footer>
+
+<style>
+  .wordmark {
+    margin: 1.5rem 0 -0.18em;
+    text-align: center;
+    font-size: clamp(6rem, 27vw, 26rem);
+    line-height: 0.8;
+    letter-spacing: -0.04em;
+    background: linear-gradient(180deg, var(--surface-2), transparent 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+</style>
